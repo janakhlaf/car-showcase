@@ -1,0 +1,122 @@
+@import "tailwindcss";
+
+@theme {
+  /* Typography */
+  --font-sans: var(--font-manrope), ui-sans-serif, system-ui, sans-serif;
+  --font-display: var(--font-archivo), ui-sans-serif, system-ui, sans-serif;
+  --font-accent: var(--font-instrument), Georgia, serif;
+
+  /* Palette — obsidian & champagne */
+  --color-obsidian-950: #050507;
+  --color-obsidian-900: #0a0a0d;
+  --color-obsidian-850: #0e0e12;
+  --color-obsidian-800: #141419;
+  --color-obsidian-700: #1c1c23;
+  --color-obsidian-600: #2a2a33;
+  --color-champagne-200: #f1e4c9;
+  --color-champagne-300: #e6cfa3;
+  --color-champagne-400: #d9b981;
+  --color-champagne-500: #c8a468;
+  --color-champagne-600: #a9854c;
+
+  --animate-marquee: marquee 42s linear infinite;
+  --animate-pulse-slow: pulseSlow 5s ease-in-out infinite;
+  --animate-drift: drift 18s ease-in-out infinite alternate;
+
+  @keyframes marquee {
+    from { transform: translateX(0); }
+    to { transform: translateX(-50%); }
+  }
+  @keyframes pulseSlow {
+    0%, 100% { opacity: 0.5; }
+    50% { opacity: 1; }
+  }
+  @keyframes drift {
+    from { transform: translate3d(-6%, -4%, 0) scale(1); }
+    to { transform: translate3d(7%, 6%, 0) scale(1.14); }
+  }
+}
+
+html {
+  scroll-behavior: smooth;
+}
+
+body {
+  background-color: var(--color-obsidian-950);
+  color: #f4f4f5;
+  overflow-x: hidden;
+}
+
+::selection {
+  background: var(--color-champagne-400);
+  color: #0a0a0d;
+}
+
+/* Slim, dark scrollbar */
+::-webkit-scrollbar { width: 10px; height: 8px; }
+::-webkit-scrollbar-track { background: #0a0a0d; }
+::-webkit-scrollbar-thumb { background: #2a2a33; border-radius: 8px; border: 2px solid #0a0a0d; }
+::-webkit-scrollbar-thumb:hover { background: #c8a468; }
+
+/* ── Reusable surface treatments ─────────────────────────────── */
+.glass {
+  background: rgba(255, 255, 255, 0.035);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  backdrop-filter: blur(18px);
+  -webkit-backdrop-filter: blur(18px);
+}
+
+.glass-strong {
+  background: rgba(10, 10, 13, 0.72);
+  border: 1px solid rgba(255, 255, 255, 0.09);
+  backdrop-filter: blur(22px) saturate(140%);
+  -webkit-backdrop-filter: blur(22px) saturate(140%);
+}
+
+.text-gradient-gold {
+  background: linear-gradient(115deg, #f6ecd7 0%, #d9b981 45%, #a9854c 100%);
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+}
+
+.hairline {
+  background: linear-gradient(90deg, transparent, rgba(217, 185, 129, 0.5), transparent);
+  height: 1px;
+}
+
+/* Cinematic film grain overlay */
+.grain::after {
+  content: "";
+  position: fixed;
+  inset: -50%;
+  width: 200%;
+  height: 200%;
+  pointer-events: none;
+  z-index: 60;
+  opacity: 0.05;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='240' height='240'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='2'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+}
+
+/* Skeleton shimmer */
+.shimmer {
+  background: linear-gradient(100deg, rgba(255,255,255,0.03) 40%, rgba(255,255,255,0.09) 50%, rgba(255,255,255,0.03) 60%);
+  background-size: 200% 100%;
+  animation: shimmerMove 1.6s linear infinite;
+}
+@keyframes shimmerMove {
+  from { background-position: 200% 0; }
+  to { background-position: -200% 0; }
+}
+
+/* Elegant focus ring for keyboard users */
+:where(a, button, input, select, textarea, [tabindex]):focus-visible {
+  outline: 2px solid var(--color-champagne-400);
+  outline-offset: 3px;
+  border-radius: 4px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  html { scroll-behavior: auto; }
+  .animate-marquee { animation: none !important; }
+}

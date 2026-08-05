@@ -1,0 +1,31 @@
+# Frontend
+frontend/node_modules/
+frontend/dist/
+frontend/build/
+
+# Environment files
+frontend/.env
+backend/.env
+.env
+
+# PHP
+backend/vendor/
+
+# Logs
+*.log
+
+# VS Code
+.vscode/
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Uploads
+backend/uploads/
+
+# Large 3D files
+*.glb
+*.gltf
+*.fbx
+*.obj
