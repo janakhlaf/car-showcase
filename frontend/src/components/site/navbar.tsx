@@ -4,13 +4,12 @@ import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 import { useLocation } from "react-router-dom";
 import { AnimatePresence, motion } from "framer-motion";
-import { Gauge, LayoutGrid, Menu, ShieldCheck, X } from "lucide-react";
+import { Gauge, Menu, X } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 const LINKS = [
   { href: "/", label: "Showroom" },
   { href: "/cars", label: "Collection" },
-  { href: "/admin", label: "Admin", icon: ShieldCheck },
 ];
 
 export function Navbar() {
@@ -64,7 +63,6 @@ export function Navbar() {
                   />
                 )}
                 <span className="relative flex items-center gap-1.5">
-                  {link.icon ? <link.icon className="size-3.5" /> : <LayoutGrid className="hidden" />}
                   {link.label}
                 </span>
               </Link>
