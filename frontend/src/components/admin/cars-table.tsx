@@ -78,15 +78,33 @@ export function CarsTable({
   }
 
   async function logout() {
-    try {
-      await axios.post("/api/admin/logout");
-      toast.success("Signed out");
-      navigate("/admin/login");
-      
-    } catch {
-      toast.error("Sign out failed");
-    }
+  const refreshToken =
+    sessionStorage.getItem("adminRefreshToken");
+
+  try {
+    await axios.post(
+      "/api/admin/logout",
+      {
+        refreshToken,
+      }
+    );
+
+    sessionStorage.removeItem(
+      "adminAccessToken"
+    );
+
+    sessionStorage.removeItem(
+      "adminRefreshToken"
+    );
+
+    toast.success("Signed out");
+
+    navigate("/admin/login");
+
+  } catch {
+    toast.error("Sign out failed");
   }
+}
 
   return (
     <div className="mx-auto max-w-7xl px-5 pt-28 pb-16 lg:px-8">

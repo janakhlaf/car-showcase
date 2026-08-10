@@ -283,15 +283,177 @@ if (
     ];
 
     $accessToken = createAccessToken($admin);
+    $refresh = createRefreshToken();
+    $refreshStatement = $pdo->prepare(
+    'INSERT INTO refresh_tokens
+     (admin_id, token_hash, expires_at)
+     VALUES (?, ?, ?)'
+);
+
+$refreshStatement->execute([
+    $admin['id'],
+    $refresh['tokenHash'],
+    $refresh['expiresAt']
+]);
 
     out([
-        'admin' => $admin,
-        'accessToken' => $accessToken,
-        'tokenType' => 'Bearer',
-        'expiresIn' => JWT_ACCESS_TTL
+    'admin' => $admin,
+    'accessToken' => $accessToken,
+    'refreshToken' => $refresh['token'],
+    'tokenType' => 'Bearer',
+    'expiresIn' => JWT_ACCESS_TTL
+]);
+}
+/* =========================================================
+   ADMIN REFRESH TOKEN
+========================================================= */
+
+if (
+    $route === 'admin/refresh'
+    &&
+    $method === 'POST'
+) {
+    $b = body();
+
+    /*
+    |--------------------------------------------------------------------------
+    | GET REFRESH TOKEN
+    |--------------------------------------------------------------------------
+    */
+
+    $refreshToken = trim(
+        $b['refreshToken'] ?? ''
+    );
+
+    if ($refreshToken === '') {
+        fail(
+            'Refresh token is required',
+            401
+        );
+    }
+
+
+    /*
+    |--------------------------------------------------------------------------
+    | HASH RECEIVED REFRESH TOKEN
+    |--------------------------------------------------------------------------
+    */
+
+    $tokenHash = hash(
+        'sha256',
+        $refreshToken
+    );
+
+
+    /*
+    |--------------------------------------------------------------------------
+    | FIND REFRESH TOKEN IN DATABASE
+    |--------------------------------------------------------------------------
+    */
+
+    $statement = $pdo->prepare(
+        'SELECT
+            rt.admin_id,
+            rt.expires_at,
+            au.id,
+            au.name,
+            au.email
+
+         FROM refresh_tokens rt
+
+         JOIN admin_users au
+            ON au.id = rt.admin_id
+
+         WHERE rt.token_hash = ?
+         AND rt.revoked = 0
+
+         LIMIT 1'
+    );
+
+    $statement->execute([
+        $tokenHash
+    ]);
+
+    $row = $statement->fetch();
+
+
+    /*
+    |--------------------------------------------------------------------------
+    | CHECK TOKEN EXISTS
+    |--------------------------------------------------------------------------
+    */
+
+    if (!$row) {
+        fail(
+            'Invalid refresh token',
+            401
+        );
+    }
+
+
+    /*
+    |--------------------------------------------------------------------------
+    | CHECK EXPIRATION
+    |--------------------------------------------------------------------------
+    */
+
+    if (
+        strtotime($row['expires_at'])
+        <= time()
+    ) {
+        fail(
+            'Refresh token expired',
+            401
+        );
+    }
+
+
+    /*
+    |--------------------------------------------------------------------------
+    | CREATE ADMIN DATA
+    |--------------------------------------------------------------------------
+    */
+
+    $admin = [
+        'id' => (int)$row['id'],
+        'name' => $row['name'],
+        'email' => $row['email']
+    ];
+
+
+    /*
+    |--------------------------------------------------------------------------
+    | CREATE NEW ACCESS TOKEN
+    |--------------------------------------------------------------------------
+    */
+
+    $newAccessToken =
+        createAccessToken(
+            $admin
+        );
+
+
+    /*
+    |--------------------------------------------------------------------------
+    | RETURN NEW ACCESS TOKEN
+    |--------------------------------------------------------------------------
+    */
+
+    out([
+        'accessToken' =>
+            $newAccessToken,
+
+        'tokenType' =>
+            'Bearer',
+
+        'expiresIn' =>
+            JWT_ACCESS_TTL
     ]);
 }
 
+/* =========================================================
+   ADMIN LOGOUT
+========================================================= */
 
 /* =========================================================
    ADMIN LOGOUT
@@ -302,9 +464,41 @@ if (
     &&
     $method === 'POST'
 ) {
-    session_destroy();
+    $b = body();
 
-    out(true);
+    // Get refresh token sent from frontend
+    $refreshToken = trim(
+        $b['refreshToken'] ?? ''
+    );
+
+    if ($refreshToken === '') {
+        fail(
+            'Refresh token is required',
+            400
+        );
+    }
+
+    // Create the same hash stored in database
+    $tokenHash = hash(
+        'sha256',
+        $refreshToken
+    );
+
+    // Revoke this refresh token only
+    $statement = $pdo->prepare(
+        'UPDATE refresh_tokens
+         SET revoked = 1
+         WHERE token_hash = ?
+           AND revoked = 0'
+    );
+
+    $statement->execute([
+        $tokenHash
+    ]);
+
+    out([
+        'success' => true
+    ]);
 }
 
 

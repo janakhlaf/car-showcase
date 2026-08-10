@@ -31,6 +31,13 @@ export function LoginForm() {
       "adminAccessToken",
       accessToken
     );
+    const refreshToken =
+  response.data.data.refreshToken;
+
+      sessionStorage.setItem(
+        "adminRefreshToken",
+        refreshToken
+      );
 
     toast.success("Welcome back", {
       description:

@@ -1,3 +1,4 @@
+import { adminApi } from "@/lib/admin-auth";
 import {useEffect,useState} from 'react'; import {useNavigate,useParams} from 'react-router-dom'; import axios from 'axios'; import type {Brand,CarWithBrand} from '@/db/schema'; import {CarsTable} from '@/components/admin/cars-table'; import {CarForm} from '@/components/admin/car-form'; import {LoginForm} from '@/components/admin/login-form';
 export function AdminLoginPage(){return <div className="mx-auto flex min-h-screen max-w-md items-center px-5"><LoginForm/></div>}
 function useAdminData() {
@@ -10,39 +11,31 @@ function useAdminData() {
   } | null>(null);
 
   useEffect(() => {
-    const token = sessionStorage.getItem("adminAccessToken");
-
-    if (!token) {
-      nav("/admin/login");
-      return;
-    }
-
     Promise.all([
-      axios.get("/api/admin/me", {
-        headers: {
-          Authorization: `Bearer ${token}`,
-        },
-      }),
+  adminApi.get("/api/admin/me"),
 
-      axios.get("/api/cars?limit=200"),
+  axios.get("/api/cars?limit=200"),
 
-      axios.get("/api/brands"),
-    ])
+  axios.get("/api/brands"),
+])
       .then(([m, c, b]) => {
-        setData({
-          cars: c.data.data,
-          brands: b.data.data,
-          name: m.data.data.email,
-        });
-      })
-      .catch((error) => {
-        console.log(
-          "ADMIN ME ERROR:",
-          error.response?.data
-        );
 
-        nav("/admin/login");
-      });
+  console.log("ME RESPONSE:", m.data);
+
+  setData({
+    cars: c.data.data,
+    brands: b.data.data,
+    name: m.data.data?.email ?? m.data.email ?? "Admin",
+  });
+})
+      .catch((error) => {
+  console.log("FULL ADMIN ERROR:", error);
+  console.log("MESSAGE:", error.message);
+  console.log("STATUS:", error.response?.status);
+  console.log("DATA:", error.response?.data);
+
+  nav("/admin/login");
+});
 
   }, [nav]);
 

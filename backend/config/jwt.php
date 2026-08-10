@@ -367,3 +367,35 @@ if (
 
 return $payload;
 }
+
+/*
+|--------------------------------------------------------------------------
+| CREATE REFRESH TOKEN
+|--------------------------------------------------------------------------
+*/
+
+function createRefreshToken(): array
+{
+    // التوكن الأصلي
+    $token = bin2hex(
+        random_bytes(32)
+    );
+
+    // نخزن فقط الـ hash في MySQL
+    $tokenHash = hash(
+        'sha256',
+        $token
+    );
+
+    // 7 أيام من الآن
+    $expiresAt = date(
+        'Y-m-d H:i:s',
+        time() + 604800
+    );
+
+    return [
+        'token' => $token,
+        'tokenHash' => $tokenHash,
+        'expiresAt' => $expiresAt
+    ];
+}
