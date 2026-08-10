@@ -13,22 +13,46 @@ export function LoginForm() {
   const [loading, setLoading] = useState(false);
 
   async function onSubmit(e: React.FormEvent) {
-    e.preventDefault();
-    setLoading(true);
-    try {
-      await axios.post("/api/admin/login", { email, password });
-      toast.success("Welcome back", { description: "Signed in to the admin dashboard." });
-      navigate("/admin");
-      
-    } catch (error) {
-      const message = axios.isAxiosError(error)
-        ? (error.response?.data?.error ?? "Sign in failed")
-        : "Sign in failed";
-      toast.error(message);
-    } finally {
-      setLoading(false);
-    }
+  e.preventDefault();
+  setLoading(true);
+
+  try {
+    const response = await axios.post(
+      "/api/admin/login",
+      {
+        email,
+        password,
+      }
+    );
+
+    const accessToken =
+      response.data.data.accessToken;
+    sessionStorage.setItem(
+      "adminAccessToken",
+      accessToken
+    );
+
+    toast.success("Welcome back", {
+      description:
+        "Signed in to the admin dashboard.",
+    });
+
+    navigate("/admin");
+
+  } catch (error) {
+    const message = axios.isAxiosError(error)
+      ? (
+          error.response?.data?.error
+          ?? "Sign in failed"
+        )
+      : "Sign in failed";
+
+    toast.error(message);
+
+  } finally {
+    setLoading(false);
   }
+}
 
   return (
     <div className="w-full">

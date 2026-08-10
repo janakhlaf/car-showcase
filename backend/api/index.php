@@ -2,9 +2,9 @@
 
 declare(strict_types=1);
 
-session_start();
-
 require_once __DIR__ . '/../config/database.php';
+require_once __DIR__ . '/../config/jwt.php';
+
 
 header('Content-Type: application/json; charset=utf-8');
 
@@ -29,7 +29,7 @@ if (
 }
 
 header('Access-Control-Allow-Credentials: true');
-header('Access-Control-Allow-Headers: Content-Type');
+header('Access-Control-Allow-Headers: Content-Type, Authorization');
 header('Access-Control-Allow-Methods: GET,POST,PUT,DELETE,OPTIONS');
 
 
@@ -83,9 +83,91 @@ function body(): array
 }
 
 
-function admin(): void
+/*
+|--------------------------------------------------------------------------
+| GET BEARER TOKEN
+|--------------------------------------------------------------------------
+*/
+
+function getBearerToken(): string
 {
-    if (empty($_SESSION['admin'])) {
+    $authHeader = '';
+
+    /*
+    |--------------------------------------------------------------------------
+    | GET AUTHORIZATION HEADER
+    |--------------------------------------------------------------------------
+    */
+
+    if (isset($_SERVER['HTTP_AUTHORIZATION'])) {
+        $authHeader = $_SERVER['HTTP_AUTHORIZATION'];
+    }
+
+    elseif (function_exists('getallheaders')) {
+
+        $headers = getallheaders();
+
+        foreach ($headers as $name => $value) {
+
+            if (strtolower($name) === 'authorization') {
+                $authHeader = $value;
+                break;
+            }
+        }
+    }
+
+
+    /*
+    |--------------------------------------------------------------------------
+    | CHECK BEARER
+    |--------------------------------------------------------------------------
+    */
+
+    if (
+        $authHeader === ''
+        ||
+        !preg_match(
+            '/^Bearer\s+(.+)$/i',
+            $authHeader,
+            $matches
+        )
+    ) {
+        throw new RuntimeException(
+            'Missing access token'
+        );
+    }
+
+
+    $token = trim($matches[1]);
+
+    if ($token === '') {
+        throw new RuntimeException(
+            'Missing access token'
+        );
+    }
+
+    return $token;
+}
+
+
+/*
+|--------------------------------------------------------------------------
+| ADMIN AUTH
+|--------------------------------------------------------------------------
+*/
+
+function admin(): array
+{
+    try {
+
+        $token = getBearerToken();
+
+        return verifyAccessToken(
+            $token
+        );
+
+    } catch (Throwable $e) {
+
         fail('Unauthorized', 401);
     }
 }
@@ -194,21 +276,20 @@ if (
     }
 
 
-    $_SESSION['admin'] = [
-        'id' =>
-            (int)$user['id'],
-
-        'name' =>
-            $user['name'],
-
-        'email' =>
-            $user['email'],
+    $admin = [
+        'id' => (int)$user['id'],
+        'name' => $user['name'],
+        'email' => $user['email'],
     ];
 
+    $accessToken = createAccessToken($admin);
 
-    out(
-        $_SESSION['admin']
-    );
+    out([
+        'admin' => $admin,
+        'accessToken' => $accessToken,
+        'tokenType' => 'Bearer',
+        'expiresIn' => JWT_ACCESS_TTL
+    ]);
 }
 
 
@@ -236,10 +317,13 @@ if (
     &&
     $method === 'GET'
 ) {
-    out(
-        $_SESSION['admin']
-        ?? null
-    );
+    $payload = admin();
+
+    out([
+        'id' => (int)$payload['sub'],
+        'email' => $payload['email'],
+        'role' => $payload['role']
+    ]);
 }
 
 
