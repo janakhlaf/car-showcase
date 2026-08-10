@@ -192,6 +192,42 @@ function setDefaultVariant(index: number) {
       setUploading(null);
     }
   }
+  async function onVariantUpload(
+  index: number,
+  kind: "thumbnail" | "model",
+  files: FileList | null
+) {
+  if (!files?.length) return;
+
+  const uploadKey = `variant-${index}-${kind}`;
+  setUploading(uploadKey);
+
+  try {
+    const urls = await uploadFiles(Array.from(files));
+
+    if (kind === "thumbnail") {
+      updateVariant(index, "thumbnailUrl", urls[0]);
+    }
+
+    if (kind === "model") {
+      updateVariant(index, "modelUrl", urls[0]);
+    }
+
+    toast.success(
+      kind === "thumbnail"
+        ? "Color image uploaded"
+        : "Color 3D model uploaded"
+    );
+  } catch (error) {
+    toast.error(
+      axios.isAxiosError(error)
+        ? error.response?.data?.error ?? "Upload failed"
+        : "Upload failed"
+    );
+  } finally {
+    setUploading(null);
+  }
+}
 
   function addFeature() {
     const value = featureDraft.trim();
@@ -488,6 +524,99 @@ function setDefaultVariant(index: number) {
             />
           </label>
         </div>
+        {/* Image + 3D model for THIS color */}
+<div className="mt-5 grid gap-5 md:grid-cols-2">
+
+  {/* COLOR IMAGE */}
+  <div>
+    <span className={labelCls}>Color image *</span>
+
+    <input
+      id={`variant-thumbnail-${index}`}
+      type="file"
+      accept="image/*"
+      hidden
+      onChange={(e) =>
+        onVariantUpload(index, "thumbnail", e.target.files)
+      }
+    />
+
+    <button
+      type="button"
+      disabled={uploading !== null}
+      onClick={() =>
+        document
+          .getElementById(`variant-thumbnail-${index}`)
+          ?.click()
+      }
+      className="mt-2 inline-flex items-center gap-2 rounded-xl border border-white/10 px-4 py-2.5 text-xs font-semibold text-zinc-300 hover:border-champagne-400/50 hover:text-champagne-300 disabled:opacity-50"
+    >
+      {uploading === `variant-${index}-thumbnail` ? (
+        <Loader2 className="size-3.5 animate-spin" />
+      ) : (
+        <ImagePlus className="size-3.5" />
+      )}
+
+      Upload image
+    </button>
+
+    {variant.thumbnailUrl && (
+      <div className="mt-3">
+        <img
+          src={variant.thumbnailUrl}
+          alt={variant.colorName || `Color ${index + 1}`}
+          className="h-28 w-48 rounded-xl border border-white/10 object-cover"
+        />
+
+        <p className="mt-2 text-xs text-green-400">
+          ✓ Image uploaded
+        </p>
+      </div>
+    )}
+  </div>
+
+
+  {/* COLOR 3D MODEL */}
+  <div>
+    <span className={labelCls}>3D model GLB / GLTF *</span>
+
+    <input
+      id={`variant-model-${index}`}
+      type="file"
+      accept=".glb,.gltf"
+      hidden
+      onChange={(e) =>
+        onVariantUpload(index, "model", e.target.files)
+      }
+    />
+
+    <button
+      type="button"
+      disabled={uploading !== null}
+      onClick={() =>
+        document
+          .getElementById(`variant-model-${index}`)
+          ?.click()
+      }
+      className="mt-2 inline-flex items-center gap-2 rounded-xl border border-white/10 px-4 py-2.5 text-xs font-semibold text-zinc-300 hover:border-champagne-400/50 hover:text-champagne-300 disabled:opacity-50"
+    >
+      {uploading === `variant-${index}-model` ? (
+        <Loader2 className="size-3.5 animate-spin" />
+      ) : (
+        <Upload className="size-3.5" />
+      )}
+
+      Upload GLB / GLTF
+    </button>
+
+    {variant.modelUrl && (
+      <p className="mt-3 text-xs text-green-400">
+        ✓ 3D model uploaded
+      </p>
+    )}
+  </div>
+
+</div>
       </div>
     ))}
   </div>
@@ -512,12 +641,7 @@ function setDefaultVariant(index: number) {
         <div className="flex items-center justify-between">
           <h2 className="font-display text-sm font-semibold tracking-[0.24em] text-champagne-400 uppercase">Photography</h2>
           <div className="flex gap-2">
-            <input ref={thumbInputRef} type="file" accept="image/*" hidden onChange={(e) => onUpload("thumbnail", e.target.files)} />
             <input ref={galleryInputRef} type="file" accept="image/*" multiple hidden onChange={(e) => onUpload("gallery", e.target.files)} />
-            <button type="button" disabled={uploading !== null} onClick={() => thumbInputRef.current?.click()} className="inline-flex items-center gap-1.5 rounded-lg border border-white/10 px-3.5 py-2 text-xs font-semibold text-zinc-300 transition-colors hover:border-champagne-400/50 hover:text-champagne-300 disabled:opacity-50">
-              {uploading === "thumbnail" ? <Loader2 className="size-3.5 animate-spin" /> : <ImagePlus className="size-3.5" />}
-              Thumbnail
-            </button>
             <button type="button" disabled={uploading !== null} onClick={() => galleryInputRef.current?.click()} className="inline-flex items-center gap-1.5 rounded-lg border border-white/10 px-3.5 py-2 text-xs font-semibold text-zinc-300 transition-colors hover:border-champagne-400/50 hover:text-champagne-300 disabled:opacity-50">
               {uploading === "gallery" ? <Loader2 className="size-3.5 animate-spin" /> : <Upload className="size-3.5" />}
               Gallery upload
