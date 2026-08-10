@@ -13,6 +13,7 @@ import { useRef, useState } from "react";
 import { Link } from "react-router-dom";
 import { useNavigate } from "react-router-dom";
 import axios from "axios";
+import { adminApi } from "@/lib/admin-auth";
 import {
   ArrowLeft,
   Box,
@@ -36,7 +37,12 @@ const labelCls = "text-[11px] font-semibold tracking-[0.2em] text-zinc-500 upper
 async function uploadFiles(files: File[]): Promise<string[]> {
   const fd = new FormData();
   files.forEach((f) => fd.append("files", f));
-  const res = await axios.post<{ data: { urls: string[] } }>("/api/upload", fd);
+
+  const res = await adminApi.post<{ data: { urls: string[] } }>(
+    "/api/upload",
+    fd
+  );
+
   return res.data.data.urls;
 }
 
@@ -66,6 +72,23 @@ export function CarForm({
   const [saving, setSaving] = useState(false);
   const [uploading, setUploading] = useState<string | null>(null);
   const [featureDraft, setFeatureDraft] = useState("");
+  type CarVariantForm = {
+  colorName: string;
+  colorHex: string;
+  thumbnailUrl: string;
+  modelUrl: string;
+  isDefault: boolean;
+};
+
+const [variants, setVariants] = useState<CarVariantForm[]>([
+  {
+    colorName: initial?.color ?? "",
+    colorHex: initial?.colorHex ?? "#8a8d91",
+    thumbnailUrl: initial?.thumbnail ?? "",
+    modelUrl: initial?.modelPath ?? "",
+    isDefault: true,
+  },
+]);
 
   const thumbInputRef = useRef<HTMLInputElement>(null);
   const galleryInputRef = useRef<HTMLInputElement>(null);
@@ -92,6 +115,52 @@ export function CarForm({
 
   const set = <K extends keyof typeof form>(key: K, value: (typeof form)[K]) =>
     setForm((f) => ({ ...f, [key]: value }));
+  function addVariant() {
+  setVariants((current) => [
+    ...current,
+    {
+      colorName: "",
+      colorHex: "#8a8d91",
+      thumbnailUrl: "",
+      modelUrl: "",
+      isDefault: false,
+    },
+  ]);
+}
+
+function updateVariant(
+  index: number,
+  key: keyof CarVariantForm,
+  value: string | boolean
+) {
+  setVariants((current) =>
+    current.map((variant, i) =>
+      i === index
+        ? { ...variant, [key]: value }
+        : variant
+    )
+  );
+}
+
+function removeVariant(index: number) {
+  setVariants((current) => {
+    if (current.length === 1) {
+      toast.error("At least one color is required");
+      return current;
+    }
+
+    return current.filter((_, i) => i !== index);
+  });
+}
+
+function setDefaultVariant(index: number) {
+  setVariants((current) =>
+    current.map((variant, i) => ({
+      ...variant,
+      isDefault: i === index,
+    }))
+  );
+}
 
   async function addBrand() {
     const name = newBrand.trim();
@@ -153,14 +222,28 @@ export function CarForm({
         modelPath: form.modelPath || null,
         specs: cleanSpecs,
         features,
+        variants,
       };
       if (mode === "create") {
-        await axios.post("/api/cars", payload);
-        toast.success("Vehicle added to the collection");
-      } else {
-        await axios.put(`/api/cars/${initial!.id}`, payload);
-        toast.success("Vehicle updated");
-      }
+  await adminApi.post(
+    "/api/cars",
+    payload
+  );
+
+  toast.success(
+    "Vehicle added to the collection"
+  );
+
+} else {
+  await adminApi.put(
+    `/api/cars/${initial!.id}`,
+    payload
+  );
+
+  toast.success(
+    "Vehicle updated"
+  );
+}
       navigate("/admin");
       
     } catch (error) {
@@ -278,40 +361,137 @@ export function CarForm({
         </div>
       </section>
 
-      {/* ── Paint ──────────────────────────────────────────────── */}
-      <section className="glass mt-6 rounded-3xl p-6 md:p-8" aria-label="Paint">
-        <h2 className="font-display text-sm font-semibold tracking-[0.24em] text-champagne-400 uppercase">Factory paint</h2>
-        <div className="mt-5 grid items-end gap-5 sm:grid-cols-[1fr_auto_auto]">
+      {/* ── Color Variants ─────────────────────────────────────── */}
+<section className="glass mt-6 rounded-3xl p-6 md:p-8" aria-label="Factory colors">
+  <div className="flex flex-wrap items-center justify-between gap-4">
+    <div>
+      <h2 className="font-display text-sm font-semibold tracking-[0.24em] text-champagne-400 uppercase">
+        Factory Colors
+      </h2>
+
+      <p className="mt-2 text-xs text-zinc-500">
+        Add the available colors for this vehicle.
+      </p>
+    </div>
+
+    <button
+      type="button"
+      onClick={addVariant}
+      className="inline-flex items-center gap-2 rounded-xl border border-champagne-400/40 px-4 py-2.5 text-xs font-bold tracking-widest text-champagne-300 uppercase transition-colors hover:bg-champagne-400 hover:text-obsidian-950"
+    >
+      <Plus className="size-3.5" />
+      Add Color
+    </button>
+  </div>
+
+  <div className="mt-6 space-y-4">
+    {variants.map((variant, index) => (
+      <div
+        key={index}
+        className="rounded-2xl border border-white/10 bg-white/[0.02] p-5"
+      >
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <span className="text-sm font-semibold text-zinc-200">
+            Color {index + 1}
+          </span>
+
+          <div className="flex items-center gap-3">
+            {variant.isDefault ? (
+              <span className="flex items-center gap-1.5 text-xs font-semibold text-champagne-300">
+                <Star className="size-3.5 fill-champagne-400" />
+                Default
+              </span>
+            ) : (
+              <button
+                type="button"
+                onClick={() => setDefaultVariant(index)}
+                className="text-xs text-zinc-500 transition-colors hover:text-champagne-300"
+              >
+                Set as default
+              </button>
+            )}
+
+            {variants.length > 1 && (
+              <button
+                type="button"
+                onClick={() => removeVariant(index)}
+                className="inline-flex items-center gap-1 text-xs text-red-400/70 hover:text-red-400"
+              >
+                <Trash2 className="size-3.5" />
+                Delete
+              </button>
+            )}
+          </div>
+        </div>
+
+        <div className="mt-5 grid items-end gap-5 sm:grid-cols-[1fr_1fr_auto]">
           <label className="block">
             <span className={labelCls}>Paint name</span>
-            <input required value={form.color} onChange={(e) => set("color", e.target.value)} placeholder="e.g. Volcano Blue" className={cn(inputCls, "mt-2")} />
-          </label>
-          <label className="block">
-            <span className={labelCls}>Hex code</span>
+
             <input
               required
-              value={form.colorHex}
-              onChange={(e) => set("colorHex", e.target.value)}
-              pattern="#[0-9a-fA-F]{6}"
-              title="6-digit hex, e.g. #2f6df6"
-              className={cn(inputCls, "mt-2 w-32 font-mono uppercase")}
+              value={variant.colorName}
+              onChange={(e) =>
+                updateVariant(
+                  index,
+                  "colorName",
+                  e.target.value
+                )
+              }
+              placeholder="e.g. Volcano Blue"
+              className={cn(inputCls, "mt-2")}
             />
           </label>
+
+          <label className="block">
+            <span className={labelCls}>Hex code</span>
+
+            <input
+              required
+              value={variant.colorHex}
+              onChange={(e) =>
+                updateVariant(
+                  index,
+                  "colorHex",
+                  e.target.value
+                )
+              }
+              pattern="#[0-9a-fA-F]{6}"
+              placeholder="#3D69A4"
+              className={cn(
+                inputCls,
+                "mt-2 font-mono uppercase"
+              )}
+            />
+          </label>
+
           <label className="block">
             <span className={labelCls}>Picker</span>
+
             <input
               type="color"
-              value={/^#[0-9a-fA-F]{6}$/.test(form.colorHex) ? form.colorHex : "#8a8d91"}
-              onChange={(e) => set("colorHex", e.target.value)}
-              aria-label="Pick paint colour"
+              value={
+                /^#[0-9a-fA-F]{6}$/.test(
+                  variant.colorHex
+                )
+                  ? variant.colorHex
+                  : "#8a8d91"
+              }
+              onChange={(e) =>
+                updateVariant(
+                  index,
+                  "colorHex",
+                  e.target.value
+                )
+              }
               className="mt-2 h-[42px] w-16 cursor-pointer rounded-xl border border-white/10 bg-transparent"
             />
           </label>
         </div>
-        <p className="mt-3 flex items-center gap-2 text-xs text-zinc-500">
-          <Box className="size-3.5 text-champagne-400" /> This hex code drives the real-time 3D paint finish across the site.
-        </p>
-      </section>
+      </div>
+    ))}
+  </div>
+</section>
 
       {/* ── Story ──────────────────────────────────────────────── */}
       <section className="glass mt-6 rounded-3xl p-6 md:p-8" aria-label="Description">

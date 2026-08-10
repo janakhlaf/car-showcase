@@ -82,6 +82,87 @@ function body(): array
         : [];
 }
 
+/*
+|--------------------------------------------------------------------------
+| DELETE LOCAL UPLOAD
+|--------------------------------------------------------------------------
+*/
+
+function deleteLocalUpload(?string $url): void
+{
+    if (!$url) {
+        return;
+    }
+
+    $imagePrefix =
+        'http://localhost/car-storage/images/';
+
+    $modelPrefix =
+        'http://localhost/car-storage/models/';
+
+    $baseDir = null;
+
+    if (str_starts_with($url, $imagePrefix)) {
+        $baseDir =
+            realpath(
+                'C:/xampp/htdocs/car-storage/images'
+            );
+    }
+
+    elseif (str_starts_with($url, $modelPrefix)) {
+        $baseDir =
+            realpath(
+                'C:/xampp/htdocs/car-storage/models'
+            );
+    }
+
+    else {
+        // رابط خارجي أو غير تابع لتخزيننا
+        return;
+    }
+
+    if ($baseDir === false) {
+        return;
+    }
+
+    $filename =
+        basename(
+            parse_url(
+                $url,
+                PHP_URL_PATH
+            )
+        );
+
+    if ($filename === '') {
+        return;
+    }
+
+    $filePath =
+        $baseDir
+        . DIRECTORY_SEPARATOR
+        . $filename;
+
+    $realFile =
+        realpath(
+            $filePath
+        );
+
+    if (
+        $realFile === false
+        ||
+        !str_starts_with(
+            $realFile,
+            $baseDir . DIRECTORY_SEPARATOR
+        )
+    ) {
+        return;
+    }
+
+    if (is_file($realFile)) {
+        unlink($realFile);
+    }
+}
+
 
 /*
 |--------------------------------------------------------------------------
@@ -1213,179 +1294,271 @@ if (
 
 
     /* -----------------------------------------------------
-       DELETE CAR
-    ----------------------------------------------------- */
+   DELETE CAR
+----------------------------------------------------- */
 
-    if (
-        $method === 'DELETE'
-    ) {
-        admin();
+if (
+    $method === 'DELETE'
+) {
+    admin();
+
+    /*
+     * Get current car files before deleting DB rows.
+     */
+
+    $carStatement = $pdo->prepare(
+        'SELECT
+            thumbnail,
+            images,
+            model_path
+         FROM cars
+         WHERE id = ?
+         LIMIT 1'
+    );
+
+    $carStatement->execute([
+        $id
+    ]);
+
+    $carFiles =
+        $carStatement->fetch();
+
+    if (!$carFiles) {
+        fail(
+            'Car not found',
+            404
+        );
+    }
 
 
-        /*
-         * Delete variants first in case FK cascade
-         * is not configured.
-         */
+    /*
+     * Get variant files too.
+     */
 
-        $variantStatement =
+    $variantFilesStatement =
+        $pdo->prepare(
+            'SELECT
+                thumbnail_url,
+                model_url
+             FROM car_variants
+             WHERE car_id = ?'
+        );
+
+    $variantFilesStatement->execute([
+        $id
+    ]);
+
+    $variantFiles =
+        $variantFilesStatement->fetchAll();
+
+
+    /*
+     * Delete DB rows.
+     */
+
+    $pdo->beginTransaction();
+
+    try {
+
+        $variantDelete =
             $pdo->prepare(
                 'DELETE FROM car_variants
                  WHERE car_id = ?'
             );
 
-        $variantStatement->execute([
+        $variantDelete->execute([
             $id
         ]);
 
 
-        $statement =
+        $carDelete =
             $pdo->prepare(
                 'DELETE FROM cars
                  WHERE id = ?'
             );
 
-
-        $statement->execute([
+        $carDelete->execute([
             $id
         ]);
 
 
-        out(true);
+        $pdo->commit();
+
+    } catch (Throwable $e) {
+
+        if ($pdo->inTransaction()) {
+            $pdo->rollBack();
+        }
+
+        fail(
+            'Could not delete car',
+            500
+        );
     }
 
 
-    /* -----------------------------------------------------
-       UPDATE CAR
-    ----------------------------------------------------- */
+    /*
+     * Delete local physical files after DB delete succeeded.
+     */
 
-    if (
-        $method === 'PUT'
-    ) {
-        admin();
+    deleteLocalUpload(
+        $carFiles['thumbnail'] ?? null
+    );
 
+    $images =
+        json_decode(
+            $carFiles['images'] ?? '[]',
+            true
+        );
 
-        $b =
-            body();
-
-
-        $statement =
-            $pdo->prepare(
-                '
-                UPDATE cars
-
-                SET
-                    name = ?,
-                    brand_id = ?,
-                    year = ?,
-                    price = ?,
-                    color = ?,
-                    color_hex = ?,
-                    description = ?,
-                    thumbnail = ?,
-                    images = ?,
-                    sketchfab_url = ?,
-                    model_path = ?,
-                    featured = ?,
-                    specs = ?,
-                    features = ?
-
-                WHERE id = ?
-                '
+    if (is_array($images)) {
+        foreach ($images as $image) {
+            deleteLocalUpload(
+                is_string($image)
+                    ? $image
+                    : null
             );
-
-
-        $statement->execute([
-            $b['name'],
-
-            $b['brandId'],
-
-            $b['year'],
-
-            $b['price'],
-
-            $b['color'],
-
-            $b['colorHex'],
-
-            $b['description'],
-
-            $b['thumbnail'],
-
-            json_encode(
-                $b['images']
-                ?? []
-            ),
-
-            $b['sketchfabUrl']
-                ?: null,
-
-            $b['modelPath']
-                ?: null,
-
-            !empty(
-                $b['featured']
-            ),
-
-            json_encode(
-                $b['specs']
-                ?? []
-            ),
-
-            json_encode(
-                $b['features']
-                ?? []
-            ),
-
-            $id,
-        ]);
-
-
-        out(true);
+        }
     }
+
+    deleteLocalUpload(
+        $carFiles['model_path'] ?? null
+    );
+
+
+    foreach ($variantFiles as $variantFile) {
+        deleteLocalUpload(
+            $variantFile['thumbnail_url']
+            ?? null
+        );
+
+        deleteLocalUpload(
+            $variantFile['model_url']
+            ?? null
+        );
+    }
+
+
+    out(true);
 }
 
 
-/* =========================================================
-   CREATE CAR
-========================================================= */
+    /* -----------------------------------------------------
+   UPDATE CAR
+----------------------------------------------------- */
 
 if (
-    $route === 'cars'
-    &&
-    $method === 'POST'
+    $method === 'PUT'
 ) {
     admin();
 
+    $b = body();
 
-    $b =
-        body();
 
+    /*
+     * Get old files before updating.
+     */
+
+    $oldStatement = $pdo->prepare(
+        'SELECT
+            thumbnail,
+            images,
+            model_path
+         FROM cars
+         WHERE id = ?
+         LIMIT 1'
+    );
+
+    $oldStatement->execute([
+        $id
+    ]);
+
+    $oldCar = $oldStatement->fetch();
+
+    if (!$oldCar) {
+        fail(
+            'Car not found',
+            404
+        );
+    }
+
+
+    /*
+     * Old gallery images.
+     */
+
+    $oldImages = json_decode(
+        $oldCar['images'] ?? '[]',
+        true
+    );
+
+    if (!is_array($oldImages)) {
+        $oldImages = [];
+    }
+
+
+    /*
+     * New gallery images.
+     */
+
+    $newImages =
+        isset($b['images']) && is_array($b['images'])
+            ? $b['images']
+            : [];
+
+
+    /*
+     * Collect OLD files.
+     */
+
+    $oldFiles = array_filter([
+        $oldCar['thumbnail'] ?? null,
+
+        ...$oldImages,
+
+        $oldCar['model_path'] ?? null,
+    ]);
+
+
+    /*
+     * Collect NEW files.
+     */
+
+    $newFiles = array_filter([
+        $b['thumbnail'] ?? null,
+
+        ...$newImages,
+
+        $b['modelPath'] ?? null,
+    ]);
+
+
+    /*
+     * Update database.
+     */
 
     $statement =
         $pdo->prepare(
             '
-            INSERT INTO cars
-            (
-                name,
-                brand_id,
-                year,
-                price,
-                color,
-                color_hex,
-                description,
-                thumbnail,
-                images,
-                sketchfab_url,
-                model_path,
-                featured,
-                specs,
-                features
-            )
+            UPDATE cars
 
-            VALUES
-            (
-                ?,?,?,?,?,?,?,?,?,?,?,?,?,?
-            )
+            SET
+                name = ?,
+                brand_id = ?,
+                year = ?,
+                price = ?,
+                color = ?,
+                color_hex = ?,
+                description = ?,
+                thumbnail = ?,
+                images = ?,
+                sketchfab_url = ?,
+                model_path = ?,
+                featured = ?,
+                specs = ?,
+                features = ?
+
+            WHERE id = ?
             '
         );
 
@@ -1408,8 +1581,7 @@ if (
         $b['thumbnail'],
 
         json_encode(
-            $b['images']
-            ?? []
+            $newImages
         ),
 
         $b['sketchfabUrl']
@@ -1431,17 +1603,287 @@ if (
             $b['features']
             ?? []
         ),
+
+        $id,
     ]);
 
 
-    out(
-        [
-            'id' =>
-                (int)$pdo
-                    ->lastInsertId()
-        ],
-        201
+    /*
+     * Delete files that are no longer used
+     * by this car after DB update succeeds.
+     */
+
+    foreach (
+        array_unique($oldFiles)
+        as $oldFile
+    ) {
+        if (
+            !in_array(
+                $oldFile,
+                $newFiles,
+                true
+            )
+        ) {
+            deleteLocalUpload(
+                is_string($oldFile)
+                    ? $oldFile
+                    : null
+            );
+        }
+    }
+
+
+   out(true);
+}
+
+}
+
+
+/* =========================================================
+   CREATE CAR
+========================================================= */
+
+if (
+    $route === 'cars'
+    &&
+    $method === 'POST'
+) {
+    admin();
+
+    $b = body();
+
+    $variants =
+        isset($b['variants']) && is_array($b['variants'])
+            ? $b['variants']
+            : [];
+
+    if (count($variants) === 0) {
+        fail(
+            'At least one color variant is required',
+            422
+        );
+    }
+
+    $defaultVariants = array_filter(
+        $variants,
+        fn ($variant) =>
+            !empty($variant['isDefault'])
     );
+
+    if (count($defaultVariants) !== 1) {
+        fail(
+            'Exactly one default color is required',
+            422
+        );
+    }
+
+
+    /*
+     * Use the default variant also as fallback
+     * values in the cars table.
+     */
+
+    $defaultVariant =
+        array_values($defaultVariants)[0];
+
+
+    $pdo->beginTransaction();
+
+    try {
+
+        /*
+         * Create main car.
+         */
+
+        $statement =
+            $pdo->prepare(
+                '
+                INSERT INTO cars
+                (
+                    name,
+                    brand_id,
+                    year,
+                    price,
+                    color,
+                    color_hex,
+                    description,
+                    thumbnail,
+                    images,
+                    sketchfab_url,
+                    model_path,
+                    featured,
+                    specs,
+                    features
+                )
+
+                VALUES
+                (
+                    ?,?,?,?,?,?,?,?,?,?,?,?,?,?
+                )
+                '
+            );
+
+
+        $statement->execute([
+            $b['name'],
+
+            $b['brandId'],
+
+            $b['year'],
+
+            $b['price'],
+
+            $defaultVariant['colorName'] ?? '',
+
+            $defaultVariant['colorHex'] ?? '#8a8d91',
+
+            $b['description'],
+
+            $defaultVariant['thumbnailUrl']
+                ?? ($b['thumbnail'] ?? ''),
+
+            json_encode(
+                $b['images']
+                ?? []
+            ),
+
+            $b['sketchfabUrl']
+                ?? null,
+
+            $defaultVariant['modelUrl']
+                ?? ($b['modelPath'] ?? null),
+
+            !empty(
+                $b['featured']
+            ),
+
+            json_encode(
+                $b['specs']
+                ?? []
+            ),
+
+            json_encode(
+                $b['features']
+                ?? []
+            ),
+        ]);
+
+
+        $carId =
+            (int)$pdo->lastInsertId();
+
+
+        /*
+         * Create color variants.
+         */
+
+        $variantStatement =
+            $pdo->prepare(
+                '
+                INSERT INTO car_variants
+                (
+                    car_id,
+                    color_name,
+                    color_hex,
+                    thumbnail_url,
+                    model_url,
+                    is_default,
+                    sort_order
+                )
+
+                VALUES
+                (
+                    ?,?,?,?,?,?,?
+                )
+                '
+            );
+
+
+        foreach (
+            $variants
+            as $index => $variant
+        ) {
+
+            $colorName =
+                trim(
+                    (string)(
+                        $variant['colorName']
+                        ?? ''
+                    )
+                );
+
+            $colorHex =
+                trim(
+                    (string)(
+                        $variant['colorHex']
+                        ?? ''
+                    )
+                );
+
+
+            if ($colorName === '') {
+                throw new RuntimeException(
+                    'Variant color name is required'
+                );
+            }
+
+            if (
+                !preg_match(
+                    '/^#[0-9a-fA-F]{6}$/',
+                    $colorHex
+                )
+            ) {
+                throw new RuntimeException(
+                    'Invalid variant color hex'
+                );
+            }
+
+
+            $variantStatement->execute([
+                $carId,
+
+                $colorName,
+
+                $colorHex,
+
+                $variant['thumbnailUrl']
+                    ?? null,
+
+                $variant['modelUrl']
+                    ?? null,
+
+                !empty(
+                    $variant['isDefault']
+                )
+                    ? 1
+                    : 0,
+
+                $index,
+            ]);
+        }
+
+
+        $pdo->commit();
+
+
+        out(
+            [
+                'id' => $carId
+            ],
+            201
+        );
+
+    } catch (Throwable $e) {
+
+        if ($pdo->inTransaction()) {
+            $pdo->rollBack();
+        }
+
+        fail(
+            $e->getMessage(),
+            422
+        );
+    }
 }
 
 
@@ -1456,30 +1898,34 @@ if (
 ) {
     admin();
 
-
     if (
-        empty(
-            $_FILES['files']
-        )
+        empty($_FILES['files'])
     ) {
         fail(
             'No files uploaded'
         );
     }
 
-
-    $files =
-        $_FILES['files'];
-
+    $files = $_FILES['files'];
 
     $urls = [];
 
+    /*
+     * Images go to:
+     * C:/xampp/htdocs/car-storage/images
+     *
+     * 3D models go to:
+     * C:/xampp/htdocs/car-storage/models
+     */
 
-    $allowed = [
+    $imageExtensions = [
         'jpg',
         'jpeg',
         'png',
         'webp',
+    ];
+
+    $modelExtensions = [
         'glb',
         'gltf',
     ];
@@ -1487,43 +1933,98 @@ if (
 
     for (
         $i = 0;
-        $i < count(
-            $files['name']
-        );
+        $i < count($files['name']);
         $i++
     ) {
+
         if (
             $files['error'][$i]
-            !==
-            UPLOAD_ERR_OK
+            !== UPLOAD_ERR_OK
         ) {
             continue;
         }
 
 
-        $extension =
-            strtolower(
-                pathinfo(
-                    $files['name'][$i],
-                    PATHINFO_EXTENSION
-                )
-            );
+        $extension = strtolower(
+            pathinfo(
+                $files['name'][$i],
+                PATHINFO_EXTENSION
+            )
+        );
 
+
+        /*
+         * Decide storage folder based on file type.
+         */
 
         if (
-            !in_array(
+            in_array(
                 $extension,
-                $allowed,
+                $imageExtensions,
                 true
             )
         ) {
+
+            $storageDirectory =
+                'C:/xampp/htdocs/car-storage/images';
+
+            $publicUrl =
+                'http://localhost/car-storage/images/';
+
+        }
+
+        elseif (
+            in_array(
+                $extension,
+                $modelExtensions,
+                true
+            )
+        ) {
+
+            $storageDirectory =
+                'C:/xampp/htdocs/car-storage/models';
+
+            $publicUrl =
+                'http://localhost/car-storage/models/';
+
+        }
+
+        else {
             continue;
         }
 
 
+        /*
+         * Make sure directory exists.
+         */
+
+        if (
+            !is_dir($storageDirectory)
+        ) {
+            if (
+                !mkdir(
+                    $storageDirectory,
+                    0775,
+                    true
+                )
+                &&
+                !is_dir($storageDirectory)
+            ) {
+                fail(
+                    'Could not create storage directory',
+                    500
+                );
+            }
+        }
+
+
+        /*
+         * Generate unique filename.
+         */
+
         $name =
             bin2hex(
-                random_bytes(8)
+                random_bytes(16)
             )
             .
             '.'
@@ -1532,30 +2033,50 @@ if (
 
 
         $target =
-            __DIR__
+            $storageDirectory
             .
-            '/../uploads/'
+            DIRECTORY_SEPARATOR
             .
             $name;
 
 
+        /*
+         * Move uploaded file.
+         */
+
         if (
-            move_uploaded_file(
+            !move_uploaded_file(
                 $files['tmp_name'][$i],
                 $target
             )
         ) {
-            $urls[] =
-                'http://localhost/finalcar/backend/uploads/'
-                .
-                $name;
+            fail(
+                'Could not save uploaded file',
+                500
+            );
         }
+
+
+        /*
+         * Return public URL to frontend.
+         */
+
+        $urls[] =
+            $publicUrl
+            .
+            $name;
+    }
+
+
+    if (empty($urls)) {
+        fail(
+            'No valid files were uploaded'
+        );
     }
 
 
     out([
-        'urls' =>
-            $urls
+        'urls' => $urls
     ]);
 }
 
