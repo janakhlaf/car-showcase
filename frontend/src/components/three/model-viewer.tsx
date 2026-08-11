@@ -195,26 +195,26 @@ function createInteriorPresets(
      * After the current normalisation, the steering-wheel side maps to -X.
      */
     driver: {
-      position: new THREE.Vector3(
-        -size.x * 0.25,
-        size.y * 0.66,
-        size.z * 0.13,
-      ),
-      yaw: Math.PI,
-      pitch: -0.08,
-      fov: 72,
-    },
+  position: new THREE.Vector3(
+    -size.x * 0.18,
+    size.y * 0.69,
+    size.z * 0.08,
+  ),
+  yaw: Math.PI,
+  pitch: -0.10,
+  fov: 74,
+},
 
     passenger: {
-      position: new THREE.Vector3(
-        size.x * 0.25,
-        size.y * 0.66,
-        size.z * 0.13,
-      ),
-      yaw: Math.PI,
-      pitch: -0.08,
-      fov: 72,
-    },
+  position: new THREE.Vector3(
+    size.x * 0.18,
+    size.y * 0.69,
+    size.z * 0.08,
+  ),
+  yaw: Math.PI,
+  pitch: -0.10,
+  fov: 74,
+},
 
     dashboard: {
       position: new THREE.Vector3(
