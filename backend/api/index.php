@@ -603,10 +603,37 @@ if (
 ) {
     $payload = admin();
 
+    $adminId = (int)$payload['sub'];
+
+    $statement = $pdo->prepare(
+        'SELECT
+            id,
+            name,
+            email,
+            created_at AS createdAt
+         FROM admin_users
+         WHERE id = ?
+         LIMIT 1'
+    );
+
+    $statement->execute([
+        $adminId
+    ]);
+
+    $user = $statement->fetch();
+
+    if (!$user) {
+        fail(
+            'Admin account not found',
+            404
+        );
+    }
+
     out([
-        'id' => (int)$payload['sub'],
-        'email' => $payload['email'],
-        'role' => $payload['role']
+        'id' => (int)$user['id'],
+        'name' => $user['name'],
+        'email' => $user['email'],
+        'createdAt' => $user['createdAt']
     ]);
 }
 

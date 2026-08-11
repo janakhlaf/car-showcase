@@ -42,7 +42,6 @@ export function CarsTable({
   const [query, setQuery] = useState("");
   const [toDelete, setToDelete] = useState<CarWithBrand | null>(null);
   const [deleting, setDeleting] = useState(false);
-
   const filtered = useMemo(() => {
     const q = query.trim().toLowerCase();
     if (!q) return cars;
@@ -110,6 +109,7 @@ export function CarsTable({
 
   return (
     <div className="mx-auto max-w-7xl px-5 pt-28 pb-16 lg:px-8">
+
       {/* header */}
       <header className="flex flex-col gap-5 md:flex-row md:items-end md:justify-between">
         <div>
@@ -138,13 +138,6 @@ export function CarsTable({
     <Plus className="size-4" /> Add vehicle
   </Link>
 
-  <button
-    type="button"
-    onClick={logout}
-    className="inline-flex items-center gap-2 rounded-full border border-white/10 px-5 py-3 text-xs font-semibold tracking-[0.14em] text-zinc-400 uppercase transition-colors hover:border-white/30 hover:text-zinc-200"
-  >
-    <LogOut className="size-3.5" /> Sign out
-  </button>
 
 </div>
       </header>

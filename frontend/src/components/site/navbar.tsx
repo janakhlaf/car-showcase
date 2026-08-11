@@ -4,8 +4,10 @@ import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 import { useLocation } from "react-router-dom";
 import { AnimatePresence, motion } from "framer-motion";
-import { Gauge, Menu, X } from "lucide-react";
+import { Gauge, Menu, X, UserCircle, LogOut } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { adminApi } from "@/lib/admin-auth";
+import axios from "axios";
 
 const LINKS = [
   { href: "/", label: "Showroom" },
@@ -15,8 +17,14 @@ const LINKS = [
 export function Navbar() {
   const pathname = useLocation().pathname;
   const isAdmin = pathname.startsWith("/admin");
+  const isAdminLogin = pathname === "/admin/login";
   const [scrolled, setScrolled] = useState(false);
   const [open, setOpen] = useState(false);
+  const [profileOpen, setProfileOpen] = useState(false);
+  const [adminAccount, setAdminAccount] = useState<{
+  name: string;
+  email: string;
+} | null>(null);
 
   useEffect(() => {
     const onScroll = () => setScrolled(window.scrollY > 24);
@@ -26,15 +34,52 @@ export function Navbar() {
   }, []);
 
   useEffect(() => setOpen(false), [pathname]);
-  if (isAdmin) {
+  useEffect(() => {
+  if (!isAdmin || isAdminLogin) {
+    setAdminAccount(null);
+    return;
+  }
+
+  adminApi
+    .get("/api/admin/me")
+    .then((response) => {
+      setAdminAccount({
+        name: response.data.data.name,
+        email: response.data.data.email,
+      });
+    })
+    .catch(() => {
+      setAdminAccount(null);
+    });
+}, [isAdmin, isAdminLogin]);
+if (isAdminLogin) {
+  return (
+    <header className="fixed inset-x-0 top-0 z-50 bg-obsidian-950/95 py-5 backdrop-blur-md">
+      <div className="mx-auto flex max-w-7xl items-center px-5 lg:px-8">
+        <Link
+          to="/admin/login"
+          className="group flex items-center gap-2.5"
+          aria-label="VELOCE admin login"
+        >
+          <span className="grid size-9 place-items-center rounded-xl border border-champagne-400/40 bg-champagne-400/10 text-champagne-300">
+            <Gauge className="size-4.5" strokeWidth={1.75} />
+          </span>
+
+          <span className="font-display text-lg font-semibold tracking-[0.32em] uppercase">
+            Veloce
+          </span>
+        </Link>
+      </div>
+    </header>
+  );
+}  
+if (isAdmin && !isAdminLogin) {
   return (
     <header
-      className={cn(
-        "fixed inset-x-0 top-0 z-50 transition-all duration-500",
-        scrolled ? "glass-strong py-3" : "bg-transparent py-5",
-      )}
+      className="fixed inset-x-0 top-0 z-50 bg-obsidian-950/95 py-5 backdrop-blur-md"
     >
-      <div className="mx-auto flex max-w-7xl items-center px-5 lg:px-8">
+      <div className="mx-auto flex max-w-7xl items-center justify-between px-5 lg:px-8">
+
         <Link
           to="/admin"
           className="group flex items-center gap-2.5"
@@ -48,6 +93,93 @@ export function Navbar() {
             Veloce
           </span>
         </Link>
+
+
+        <div className="relative">
+          <button
+  type="button"
+  onClick={() => setProfileOpen((v) => !v)}
+  className="flex h-11 items-center gap-3 rounded-xl border border-white/10 bg-white/[0.02] px-4 text-zinc-300 transition-colors hover:border-champagne-400/40 hover:bg-champagne-400/10 hover:text-champagne-300"
+  aria-label="Admin account"
+  aria-expanded={profileOpen}
+>
+  <UserCircle className="size-5 shrink-0" />
+
+  <span className="max-w-[180px] truncate text-sm font-medium">
+  {adminAccount?.name || adminAccount?.email || "Admin"}
+</span>
+
+  <span
+    className={cn(
+      "text-xs text-zinc-500 transition-transform duration-200",
+      profileOpen && "rotate-180"
+    )}
+  >
+    ▾
+  </span>
+</button>
+
+          {profileOpen && (
+            <div className="absolute right-0 top-14 z-50 w-60 overflow-hidden rounded-2xl border border-white/10 bg-obsidian-900/95 shadow-2xl backdrop-blur-xl">
+
+              <div className="border-b border-white/[0.07] px-4 py-3">
+  <p className="truncate text-sm font-semibold text-zinc-200">
+    {adminAccount?.name || "Admin"}
+  </p>
+
+  <p className="mt-1 truncate text-xs text-zinc-500">
+    {adminAccount?.email || ""}
+  </p>
+</div> 
+              <div className="p-2">
+                <Link
+                  to="/admin/profile"
+                  onClick={() => setProfileOpen(false)}
+                  className="flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm text-zinc-300 transition-colors hover:bg-white/5 hover:text-champagne-300"
+                >
+                  <UserCircle className="size-4" />
+                  View profile
+                </Link>
+
+                <button
+                  type="button"
+                  onClick={async () => {
+  setProfileOpen(false);
+
+  const refreshToken =
+    sessionStorage.getItem("adminRefreshToken");
+
+  try {
+    if (refreshToken) {
+      await axios.post(
+        "/api/admin/logout",
+        {
+          refreshToken,
+        }
+      );
+    }
+  } catch (error) {
+    console.log("Logout revoke failed:", error);
+  }
+
+  sessionStorage.removeItem("adminAccessToken");
+  sessionStorage.removeItem("adminRefreshToken");
+
+  setAdminAccount(null);
+
+  window.location.href = "/admin/login";
+}}
+                  className="flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-left text-sm text-zinc-400 transition-colors hover:bg-red-500/10 hover:text-red-400"
+                >
+                  <LogOut className="size-4" />
+                  Sign out
+                </button>
+              </div>
+
+            </div>
+          )}
+        </div>
+
       </div>
     </header>
   );

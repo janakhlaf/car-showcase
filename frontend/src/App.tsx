@@ -16,6 +16,7 @@ import {
 import { AdminUserForm } from "@/components/admin/admin-user-form";
 
 import { AdminUsersPage } from "@/components/admin/admin-users-page";
+import { AdminProfilePage } from "@/components/admin/admin-profile-page";
 
 
 export default function App() {
@@ -52,6 +53,8 @@ export default function App() {
               path="/admin"
               element={<AdminPage />}
             />
+
+            <Route path="/admin/profile" element={<AdminProfilePage/>}/>
 
             <Route
               path="/admin/users"

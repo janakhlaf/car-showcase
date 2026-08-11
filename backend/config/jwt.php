@@ -338,6 +338,7 @@ if (
 if ((int)$payload['exp'] < time()) {
     throw new RuntimeException(
         'Token expired'
+        
     );
 }
 

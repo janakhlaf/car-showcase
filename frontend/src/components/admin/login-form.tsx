@@ -25,19 +25,29 @@ export function LoginForm() {
       }
     );
 
-    const accessToken =
-      response.data.data.accessToken;
-    sessionStorage.setItem(
-      "adminAccessToken",
-      accessToken
-    );
-    const refreshToken =
-  response.data.data.refreshToken;
+    const accessToken = response.data.data.accessToken;
+const refreshToken = response.data.data.refreshToken;
+const admin = response.data.data.admin;
 
-      sessionStorage.setItem(
-        "adminRefreshToken",
-        refreshToken
-      );
+sessionStorage.setItem(
+  "adminAccessToken",
+  accessToken
+);
+
+sessionStorage.setItem(
+  "adminRefreshToken",
+  refreshToken
+);
+
+sessionStorage.setItem(
+  "adminEmail",
+  admin.email
+);
+
+sessionStorage.setItem(
+  "adminName",
+  admin.name
+);
 
     toast.success("Welcome back", {
       description:
