@@ -1602,15 +1602,6 @@ if (
             : [];
 
 
-    if (
-        count($newImages) === 0
-    ) {
-        fail(
-            'At least one gallery image is required',
-            422
-        );
-    }
-
 
     /*
      * Current car files.

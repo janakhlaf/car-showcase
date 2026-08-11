@@ -449,15 +449,7 @@ function onVariantUpload(
     }
   }
 
-  if (
-    form.images.length +
-      galleryFiles.length <
-    1
-  ) {
-    return toast.error(
-      "At least one gallery image is required"
-    );
-  }
+  
 
   setSaving(true);
   setUploading("save");
