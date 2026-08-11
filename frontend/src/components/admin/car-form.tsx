@@ -9,7 +9,7 @@
  * Server-side Zod validation remains the source of truth; 422 issues are
  * surfaced via toast.
  */
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Link } from "react-router-dom";
 import { useNavigate } from "react-router-dom";
 import axios from "axios";
@@ -73,10 +73,21 @@ export function CarForm({
   const [uploading, setUploading] = useState<string | null>(null);
   const [featureDraft, setFeatureDraft] = useState("");
   type CarVariantForm = {
+  id?: number;
+
   colorName: string;
   colorHex: string;
+
+  // الملفات المحفوظة أصلًا
   thumbnailUrl: string;
   modelUrl: string;
+
+  // الملفات الجديدة قبل Save
+  thumbnailFile: File | null;
+  thumbnailPreview: string;
+
+  modelFile: File | null;
+
   isDefault: boolean;
 };
 
@@ -84,11 +95,24 @@ const [variants, setVariants] = useState<CarVariantForm[]>([
   {
     colorName: initial?.color ?? "",
     colorHex: initial?.colorHex ?? "#8a8d91",
+
     thumbnailUrl: initial?.thumbnail ?? "",
     modelUrl: initial?.modelPath ?? "",
+
+    thumbnailFile: null,
+    thumbnailPreview: initial?.thumbnail ?? "",
+
+    modelFile: null,
+
     isDefault: true,
   },
 ]);
+
+const [galleryFiles, setGalleryFiles] =
+  useState<File[]>([]);
+
+const [galleryPreviews, setGalleryPreviews] =
+  useState<string[]>([]);
 
   const thumbInputRef = useRef<HTMLInputElement>(null);
   const galleryInputRef = useRef<HTMLInputElement>(null);
@@ -121,8 +145,15 @@ const [variants, setVariants] = useState<CarVariantForm[]>([
     {
       colorName: "",
       colorHex: "#8a8d91",
+
       thumbnailUrl: "",
       modelUrl: "",
+
+      thumbnailFile: null,
+      thumbnailPreview: "",
+
+      modelFile: null,
+
       isDefault: false,
     },
   ]);
@@ -161,6 +192,65 @@ function setDefaultVariant(index: number) {
     }))
   );
 }
+useEffect(() => {
+  if (
+    mode !== "edit" ||
+    !initial?.id
+  ) {
+    return;
+  }
+
+  adminApi
+    .get(
+      `/api/car-variants?car_id=${initial.id}`
+    )
+    .then((response) => {
+      const rows =
+        response.data.data ?? [];
+
+      if (!rows.length) {
+        return;
+      }
+
+      setVariants(
+        rows.map((variant: any) => ({
+          id: Number(variant.id),
+
+          colorName:
+            variant.colorName ?? "",
+
+          colorHex:
+            variant.colorHex ?? "#8a8d91",
+
+          thumbnailUrl:
+            variant.thumbnailUrl ?? "",
+
+          modelUrl:
+            variant.modelUrl ?? "",
+
+          thumbnailFile: null,
+
+          thumbnailPreview:
+            variant.thumbnailUrl ?? "",
+
+          modelFile: null,
+
+          isDefault:
+            Boolean(variant.isDefault),
+        }))
+      );
+    })
+    .catch((error) => {
+      console.log(
+        "VARIANTS LOAD ERROR:",
+        error
+      );
+
+      toast.error(
+        "Could not load vehicle colors"
+      );
+    });
+}, [mode, initial?.id]);
 
   async function addBrand() {
     const name = newBrand.trim();
@@ -177,56 +267,103 @@ function setDefaultVariant(index: number) {
     }
   }
 
-  async function onUpload(kind: "thumbnail" | "gallery" | "model", files: FileList | null) {
-    if (!files?.length) return;
-    setUploading(kind);
-    try {
-      const urls = await uploadFiles(Array.from(files));
-      if (kind === "thumbnail") set("thumbnail", urls[0]);
-      if (kind === "gallery") set("images", [...form.images, ...urls].slice(0, 10));
-      if (kind === "model") set("modelPath", urls[0]);
-      toast.success(kind === "model" ? "3D model uploaded" : `${urls.length} image${urls.length > 1 ? "s" : ""} uploaded`);
-    } catch (error) {
-      toast.error(axios.isAxiosError(error) ? (error.response?.data?.error ?? "Upload failed") : "Upload failed");
-    } finally {
-      setUploading(null);
-    }
+  function onUpload(
+  kind: "gallery",
+  files: FileList | null
+) {
+  if (!files?.length) {
+    return;
   }
-  async function onVariantUpload(
+
+  const selectedFiles =
+    Array.from(files);
+
+  const remaining =
+    Math.max(
+      0,
+      10 -
+        form.images.length -
+        galleryFiles.length
+    );
+
+  const acceptedFiles =
+    selectedFiles.slice(
+      0,
+      remaining
+    );
+
+  if (!acceptedFiles.length) {
+    toast.error(
+      "Maximum 10 gallery images"
+    );
+
+    return;
+  }
+
+  const previews =
+    acceptedFiles.map((file) =>
+      URL.createObjectURL(file)
+    );
+
+  setGalleryFiles((current) => [
+    ...current,
+    ...acceptedFiles,
+  ]);
+
+  setGalleryPreviews((current) => [
+    ...current,
+    ...previews,
+  ]);
+}
+
+
+function onVariantUpload(
   index: number,
   kind: "thumbnail" | "model",
   files: FileList | null
 ) {
-  if (!files?.length) return;
+  const file = files?.[0];
 
-  const uploadKey = `variant-${index}-${kind}`;
-  setUploading(uploadKey);
-
-  try {
-    const urls = await uploadFiles(Array.from(files));
-
-    if (kind === "thumbnail") {
-      updateVariant(index, "thumbnailUrl", urls[0]);
-    }
-
-    if (kind === "model") {
-      updateVariant(index, "modelUrl", urls[0]);
-    }
-
-    toast.success(
-      kind === "thumbnail"
-        ? "Color image uploaded"
-        : "Color 3D model uploaded"
-    );
-  } catch (error) {
-    toast.error(
-      axios.isAxiosError(error)
-        ? error.response?.data?.error ?? "Upload failed"
-        : "Upload failed"
-    );
-  } finally {
-    setUploading(null);
+  if (!file) {
+    return;
   }
+
+  setVariants((current) =>
+    current.map((variant, i) => {
+      if (i !== index) {
+        return variant;
+      }
+
+      if (kind === "thumbnail") {
+
+        if (
+          variant.thumbnailPreview &&
+          variant.thumbnailPreview.startsWith(
+            "blob:"
+          )
+        ) {
+          URL.revokeObjectURL(
+            variant.thumbnailPreview
+          );
+        }
+
+        return {
+          ...variant,
+
+          thumbnailFile: file,
+
+          thumbnailPreview:
+            URL.createObjectURL(file),
+        };
+      }
+
+      return {
+        ...variant,
+
+        modelFile: file,
+      };
+    })
+  );
 }
 
   function addFeature() {
@@ -238,64 +375,306 @@ function setDefaultVariant(index: number) {
     setFeatureDraft("");
   }
 
-  async function onSubmit(e: React.FormEvent) {
-    e.preventDefault();
-    if (!form.brandId) return toast.error("Choose a marque first");
-    setSaving(true);
-    try {
-      const cleanSpecs: CarSpecs = {};
-      for (const f of specFields) {
-        const raw = specs[f.key]?.trim();
-        if (!raw) continue;
-        (cleanSpecs as Record<string, unknown>)[f.key] = f.type === "number" ? Number(raw) : raw;
-      }
-      const payload = {
-        ...form,
-        year: Number(form.year),
-        price: Number(form.price),
-        brandId: Number(form.brandId),
-        sketchfabUrl: form.sketchfabUrl || null,
-        modelPath: form.modelPath || null,
-        specs: cleanSpecs,
-        features,
-        variants,
-      };
-      if (mode === "create") {
-  await adminApi.post(
-    "/api/cars",
-    payload
-  );
+  async function onSubmit(
+  e: React.FormEvent
+) {
+  e.preventDefault();
 
-  toast.success(
-    "Vehicle added to the collection"
-  );
+  if (!form.brandId) {
+    return toast.error(
+      "Choose a marque first"
+    );
+  }
 
-} else {
-  await adminApi.put(
-    `/api/cars/${initial!.id}`,
-    payload
-  );
+  if (!variants.length) {
+    return toast.error(
+      "At least one color is required"
+    );
+  }
 
-  toast.success(
-    "Vehicle updated"
-  );
-}
-      navigate("/admin");
-      
-    } catch (error) {
-      if (axios.isAxiosError(error)) {
-        const data = error.response?.data as { error?: string; issues?: Array<{ field: string; message: string }> };
-        const first = data?.issues?.[0];
-        toast.error(data?.error ?? "Save failed", {
-          description: first ? `${first.field}: ${first.message}` : undefined,
-        });
-      } else {
-        toast.error("Save failed");
-      }
-    } finally {
-      setSaving(false);
+  const defaultCount =
+    variants.filter(
+      (variant) =>
+        variant.isDefault
+    ).length;
+
+  if (defaultCount !== 1) {
+    return toast.error(
+      "Choose exactly one default color"
+    );
+  }
+
+  for (
+    let i = 0;
+    i < variants.length;
+    i++
+  ) {
+    const variant =
+      variants[i];
+
+    if (
+      !variant.colorName.trim()
+    ) {
+      return toast.error(
+        `Color ${i + 1}: paint name is required`
+      );
+    }
+
+    if (
+      !/^#[0-9a-fA-F]{6}$/.test(
+        variant.colorHex
+      )
+    ) {
+      return toast.error(
+        `Color ${i + 1}: invalid HEX color`
+      );
+    }
+
+    if (
+      !variant.thumbnailUrl &&
+      !variant.thumbnailFile
+    ) {
+      return toast.error(
+        `Color ${i + 1}: image is required`
+      );
+    }
+
+    if (
+      !variant.modelUrl &&
+      !variant.modelFile
+    ) {
+      return toast.error(
+        `Color ${i + 1}: 3D model is required`
+      );
     }
   }
+
+  if (
+    form.images.length +
+      galleryFiles.length <
+    1
+  ) {
+    return toast.error(
+      "At least one gallery image is required"
+    );
+  }
+
+  setSaving(true);
+  setUploading("save");
+
+  try {
+
+    /*
+     * Upload NEW variant files only now.
+     */
+
+    const finalVariants = [];
+
+    for (
+      const variant
+      of variants
+    ) {
+
+      let thumbnailUrl =
+        variant.thumbnailUrl;
+
+      let modelUrl =
+        variant.modelUrl;
+
+
+      if (
+        variant.thumbnailFile
+      ) {
+        const urls =
+          await uploadFiles([
+            variant.thumbnailFile,
+          ]);
+
+        thumbnailUrl =
+          urls[0];
+      }
+
+
+      if (
+        variant.modelFile
+      ) {
+        const urls =
+          await uploadFiles([
+            variant.modelFile,
+          ]);
+
+        modelUrl =
+          urls[0];
+      }
+
+
+      finalVariants.push({
+        id: variant.id,
+
+        colorName:
+          variant.colorName.trim(),
+
+        colorHex:
+          variant.colorHex,
+
+        thumbnailUrl,
+
+        modelUrl,
+
+        isDefault:
+          variant.isDefault,
+      });
+    }
+
+
+    /*
+     * Upload NEW gallery images.
+     */
+
+    let finalImages =
+      [...form.images];
+
+    if (
+      galleryFiles.length
+    ) {
+      const uploadedGallery =
+        await uploadFiles(
+          galleryFiles
+        );
+
+      finalImages = [
+        ...finalImages,
+        ...uploadedGallery,
+      ].slice(0, 10);
+    }
+
+
+    /*
+     * Specifications.
+     */
+
+    const cleanSpecs: CarSpecs = {};
+
+    for (
+      const field
+      of specFields
+    ) {
+      const raw =
+        specs[field.key]?.trim();
+
+      if (!raw) {
+        continue;
+      }
+
+      (
+        cleanSpecs as Record<
+          string,
+          unknown
+        >
+      )[field.key] =
+        field.type === "number"
+          ? Number(raw)
+          : raw;
+    }
+
+
+    /*
+     * Payload.
+     */
+
+    const payload = {
+      ...form,
+
+      year:
+        Number(form.year),
+
+      price:
+        Number(form.price),
+
+      brandId:
+        Number(form.brandId),
+
+      images:
+        finalImages,
+
+      specs:
+        cleanSpecs,
+
+      features,
+
+      variants:
+        finalVariants,
+    };
+
+
+    if (
+      mode === "create"
+    ) {
+      await adminApi.post(
+        "/api/cars",
+        payload
+      );
+
+      toast.success(
+        "Vehicle added to the collection"
+      );
+
+    } else {
+
+      await adminApi.put(
+        `/api/cars/${initial!.id}`,
+        payload
+      );
+
+      toast.success(
+        "Vehicle updated"
+      );
+    }
+
+
+    navigate("/admin");
+
+  } catch (error) {
+
+    if (
+      axios.isAxiosError(error)
+    ) {
+      const data =
+        error.response?.data as {
+          error?: string;
+          issues?: Array<{
+            field: string;
+            message: string;
+          }>;
+        };
+
+      const first =
+        data?.issues?.[0];
+
+      toast.error(
+        data?.error ??
+          "Save failed",
+        {
+          description:
+            first
+              ? `${first.field}: ${first.message}`
+              : undefined,
+        }
+      );
+
+    } else {
+
+      toast.error(
+        "Save failed"
+      );
+    }
+
+  } finally {
+
+    setSaving(false);
+    setUploading(null);
+  }
+}
 
   return (
     <form onSubmit={onSubmit} className="mx-auto max-w-5xl px-5 pt-28 pb-16 lg:px-8">
@@ -560,10 +939,16 @@ function setDefaultVariant(index: number) {
       Upload image
     </button>
 
-    {variant.thumbnailUrl && (
+    {(
+  variant.thumbnailPreview ||
+  variant.thumbnailUrl
+) && (
       <div className="mt-3">
         <img
-          src={variant.thumbnailUrl}
+          src={
+  variant.thumbnailPreview ||
+  variant.thumbnailUrl
+}
           alt={variant.colorName || `Color ${index + 1}`}
           className="h-28 w-48 rounded-xl border border-white/10 object-cover"
         />
@@ -609,11 +994,14 @@ function setDefaultVariant(index: number) {
       Upload GLB / GLTF
     </button>
 
-    {variant.modelUrl && (
-      <p className="mt-3 text-xs text-green-400">
-        ✓ 3D model uploaded
-      </p>
-    )}
+    {(
+  variant.modelFile ||
+  variant.modelUrl
+) && (
+  <p className="mt-3 text-xs text-green-400">
+    ✓ 3D model selected
+  </p>
+)}
   </div>
 
 </div>
@@ -649,14 +1037,6 @@ function setDefaultVariant(index: number) {
           </div>
         </div>
 
-        <label className="mt-5 block">
-          <span className={labelCls}>Thumbnail URL</span>
-          <input required value={form.thumbnail} onChange={(e) => set("thumbnail", e.target.value)} placeholder="https://… or /api/uploads/image.jpg" className={cn(inputCls, "mt-2")} />
-        </label>
-        {form.thumbnail && (
-          <img src={form.thumbnail} alt="Thumbnail preview" className="mt-3 h-28 w-48 rounded-xl border border-white/10 object-cover" />
-        )}
-
         <div className="mt-6">
           <span className={labelCls}>Gallery ({form.images.length}/10)</span>
           <div className="mt-3 space-y-2.5">
@@ -679,57 +1059,46 @@ function setDefaultVariant(index: number) {
                 </button>
               </div>
             ))}
-            {form.images.length < 10 && (
-              <button
-                type="button"
-                onClick={() => set("images", [...form.images, ""])}
-                className="inline-flex items-center gap-1.5 rounded-lg border border-dashed border-white/15 px-3.5 py-2 text-xs font-semibold text-zinc-400 transition-colors hover:border-champagne-400/50 hover:text-champagne-300"
-              >
-                <Plus className="size-3.5" /> Add image URL
-              </button>
-            )}
-          </div>
-        </div>
-      </section>
+            {galleryPreviews.map(
+  (preview, index) => (
+    <div
+      key={preview}
+      className="flex items-center gap-2.5"
+    >
+      <img
+        src={preview}
+        alt=""
+        className="h-10 w-16 shrink-0 rounded-lg border border-white/10 object-cover"
+      />
 
-      {/* ── 3D model ───────────────────────────────────────────── */}
-      <section className="glass mt-6 rounded-3xl p-6 md:p-8" aria-label="3D model">
-        <h2 className="font-display text-sm font-semibold tracking-[0.24em] text-champagne-400 uppercase">3D model</h2>
-        <p className="mt-2 text-xs leading-relaxed text-zinc-500">
-          Priority: Sketchfab embed → uploaded GLB/GLTF → the procedural studio car rendered in the
-          factory paint above.
-        </p>
-        <div className="mt-5 grid gap-5 md:grid-cols-2">
-          <label className="block">
-            <span className={labelCls}>Sketchfab model URL</span>
-            <input
-              value={form.sketchfabUrl ?? ""}
-              onChange={(e) => set("sketchfabUrl", e.target.value)}
-              placeholder="https://sketchfab.com/3d-models/…"
-              className={cn(inputCls, "mt-2")}
-            />
-          </label>
-          <div>
-            <span className={labelCls}>Or local GLB / GLTF</span>
-            <div className="mt-2 flex gap-2">
-              <input
-                value={form.modelPath ?? ""}
-                onChange={(e) => set("modelPath", e.target.value)}
-                placeholder="/api/uploads/model.glb"
-                className={inputCls}
-                aria-label="Model path"
-              />
-              <input ref={modelInputRef} type="file" accept=".glb,.gltf" hidden onChange={(e) => onUpload("model", e.target.files)} />
-              <button
-                type="button"
-                disabled={uploading !== null}
-                onClick={() => modelInputRef.current?.click()}
-                className="inline-flex shrink-0 items-center gap-1.5 rounded-xl border border-white/10 px-4 text-xs font-bold tracking-widest text-zinc-300 uppercase transition-colors hover:border-champagne-400/50 hover:text-champagne-300 disabled:opacity-50"
-              >
-                {uploading === "model" ? <Loader2 className="size-3.5 animate-spin" /> : <Upload className="size-3.5" />}
-                Upload
-              </button>
-            </div>
+      <div className="flex-1 text-xs text-zinc-400">
+        New image — will upload on save
+      </div>
+
+      <button
+        type="button"
+        onClick={() => {
+          setGalleryFiles(
+            (files) =>
+              files.filter(
+                (_, i) => i !== index
+              )
+          );
+
+          setGalleryPreviews(
+            (images) =>
+              images.filter(
+                (_, i) => i !== index
+              )
+          );
+        }}
+        className="grid size-9 shrink-0 place-items-center rounded-lg text-zinc-500 hover:bg-red-500/10 hover:text-red-400"
+      >
+        <Trash2 className="size-4" />
+      </button>
+    </div>
+  )
+)}
           </div>
         </div>
       </section>

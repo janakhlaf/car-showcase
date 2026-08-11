@@ -8,6 +8,7 @@ import { useMemo, useState } from "react";
 import { Link } from "react-router-dom";
 import { useNavigate } from "react-router-dom";
 import axios from "axios";
+import { adminApi } from "@/lib/admin-auth";
 import { AnimatePresence, motion } from "framer-motion";
 import {
   CircleDollarSign,
@@ -65,7 +66,7 @@ export function CarsTable({
     if (!toDelete) return;
     setDeleting(true);
     try {
-      await axios.delete(`/api/cars/${toDelete.id}`);
+      await adminApi.delete(`/api/cars/${toDelete.id}`);
       setCars((list) => list.filter((c) => c.id !== toDelete.id));
       toast.success(`${toDelete.brandName} ${toDelete.name} removed from the collection`);
       setToDelete(null);

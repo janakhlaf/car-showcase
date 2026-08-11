@@ -1,6 +1,15 @@
 <?php
 
 declare(strict_types=1);
+header('Access-Control-Allow-Origin: http://localhost:5173');
+header('Access-Control-Allow-Methods: GET, POST, PUT, PATCH, DELETE, OPTIONS');
+header('Access-Control-Allow-Headers: Content-Type, Authorization');
+header('Access-Control-Allow-Credentials: true');
+
+if ($_SERVER['REQUEST_METHOD'] === 'OPTIONS') {
+    http_response_code(204);
+    exit;
+}
 
 require_once __DIR__ . '/../config/database.php';
 require_once __DIR__ . '/../config/jwt.php';
@@ -249,7 +258,7 @@ function admin(): array
 
     } catch (Throwable $e) {
 
-        fail('Unauthorized', 401);
+        fail($e->getMessage(), 401);
     }
 }
 
@@ -1456,26 +1465,186 @@ if (
 
 
     /*
-     * Get old files before updating.
+     * Variants.
      */
 
-    $oldStatement = $pdo->prepare(
-        'SELECT
-            thumbnail,
-            images,
-            model_path
-         FROM cars
-         WHERE id = ?
-         LIMIT 1'
-    );
+    $variants =
+        isset($b['variants'])
+        &&
+        is_array($b['variants'])
+            ? $b['variants']
+            : [];
+
+
+    if (
+        count($variants) === 0
+    ) {
+        fail(
+            'At least one color variant is required',
+            422
+        );
+    }
+
+
+    $defaultVariants =
+        array_filter(
+            $variants,
+            fn ($variant) =>
+                !empty(
+                    $variant['isDefault']
+                )
+        );
+
+
+    if (
+        count(
+            $defaultVariants
+        ) !== 1
+    ) {
+        fail(
+            'Exactly one default color is required',
+            422
+        );
+    }
+
+
+    foreach (
+        $variants
+        as $variant
+    ) {
+
+        $colorName =
+            trim(
+                (string)(
+                    $variant['colorName']
+                    ?? ''
+                )
+            );
+
+        $colorHex =
+            trim(
+                (string)(
+                    $variant['colorHex']
+                    ?? ''
+                )
+            );
+
+        $thumbnailUrl =
+            trim(
+                (string)(
+                    $variant['thumbnailUrl']
+                    ?? ''
+                )
+            );
+
+        $modelUrl =
+            trim(
+                (string)(
+                    $variant['modelUrl']
+                    ?? ''
+                )
+            );
+
+
+        if (
+            $colorName === ''
+        ) {
+            fail(
+                'Variant color name is required',
+                422
+            );
+        }
+
+
+        if (
+            !preg_match(
+                '/^#[0-9a-fA-F]{6}$/',
+                $colorHex
+            )
+        ) {
+            fail(
+                'Invalid variant color hex',
+                422
+            );
+        }
+
+
+        if (
+            $thumbnailUrl === ''
+        ) {
+            fail(
+                'Variant image is required',
+                422
+            );
+        }
+
+
+        if (
+            $modelUrl === ''
+        ) {
+            fail(
+                'Variant 3D model is required',
+                422
+            );
+        }
+    }
+
+
+    /*
+     * New gallery.
+     */
+
+    $newImages =
+        isset($b['images'])
+        &&
+        is_array($b['images'])
+            ? $b['images']
+            : [];
+
+
+    if (
+        count($newImages) === 0
+    ) {
+        fail(
+            'At least one gallery image is required',
+            422
+        );
+    }
+
+
+    /*
+     * Current car files.
+     */
+
+    $oldStatement =
+        $pdo->prepare(
+            '
+            SELECT
+                thumbnail,
+                images,
+                model_path
+
+            FROM cars
+
+            WHERE id = ?
+
+            LIMIT 1
+            '
+        );
+
 
     $oldStatement->execute([
         $id
     ]);
 
-    $oldCar = $oldStatement->fetch();
 
-    if (!$oldCar) {
+    $oldCar =
+        $oldStatement->fetch();
+
+
+    if (
+        !$oldCar
+    ) {
         fail(
             'Car not found',
             404
@@ -1484,139 +1653,379 @@ if (
 
 
     /*
-     * Old gallery images.
+     * Current variant files.
      */
 
-    $oldImages = json_decode(
-        $oldCar['images'] ?? '[]',
-        true
-    );
-
-    if (!is_array($oldImages)) {
-        $oldImages = [];
-    }
-
-
-    /*
-     * New gallery images.
-     */
-
-    $newImages =
-        isset($b['images']) && is_array($b['images'])
-            ? $b['images']
-            : [];
-
-
-    /*
-     * Collect OLD files.
-     */
-
-    $oldFiles = array_filter([
-        $oldCar['thumbnail'] ?? null,
-
-        ...$oldImages,
-
-        $oldCar['model_path'] ?? null,
-    ]);
-
-
-    /*
-     * Collect NEW files.
-     */
-
-    $newFiles = array_filter([
-        $b['thumbnail'] ?? null,
-
-        ...$newImages,
-
-        $b['modelPath'] ?? null,
-    ]);
-
-
-    /*
-     * Update database.
-     */
-
-    $statement =
+    $oldVariantsStatement =
         $pdo->prepare(
             '
-            UPDATE cars
+            SELECT
+                thumbnail_url,
+                model_url
 
-            SET
-                name = ?,
-                brand_id = ?,
-                year = ?,
-                price = ?,
-                color = ?,
-                color_hex = ?,
-                description = ?,
-                thumbnail = ?,
-                images = ?,
-                sketchfab_url = ?,
-                model_path = ?,
-                featured = ?,
-                specs = ?,
-                features = ?
+            FROM car_variants
 
-            WHERE id = ?
+            WHERE car_id = ?
             '
         );
 
 
-    $statement->execute([
-        $b['name'],
+    $oldVariantsStatement
+        ->execute([
+            $id
+        ]);
 
-        $b['brandId'],
 
-        $b['year'],
-
-        $b['price'],
-
-        $b['color'],
-
-        $b['colorHex'],
-
-        $b['description'],
-
-        $b['thumbnail'],
-
-        json_encode(
-            $newImages
-        ),
-
-        $b['sketchfabUrl']
-            ?: null,
-
-        $b['modelPath']
-            ?: null,
-
-        !empty(
-            $b['featured']
-        ),
-
-        json_encode(
-            $b['specs']
-            ?? []
-        ),
-
-        json_encode(
-            $b['features']
-            ?? []
-        ),
-
-        $id,
-    ]);
+    $oldVariants =
+        $oldVariantsStatement
+            ->fetchAll();
 
 
     /*
-     * Delete files that are no longer used
-     * by this car after DB update succeeds.
+     * Collect old physical files.
+     */
+
+    $oldFiles = [];
+
+
+    $oldImages =
+        json_decode(
+            $oldCar['images']
+                ?? '[]',
+            true
+        );
+
+
+    if (
+        !is_array(
+            $oldImages
+        )
+    ) {
+        $oldImages = [];
+    }
+
+
+    if (
+        !empty(
+            $oldCar['thumbnail']
+        )
+    ) {
+        $oldFiles[] =
+            $oldCar['thumbnail'];
+    }
+
+
+    foreach (
+        $oldImages
+        as $image
+    ) {
+        if (
+            is_string($image)
+            &&
+            $image !== ''
+        ) {
+            $oldFiles[] =
+                $image;
+        }
+    }
+
+
+    if (
+        !empty(
+            $oldCar['model_path']
+        )
+    ) {
+        $oldFiles[] =
+            $oldCar['model_path'];
+    }
+
+
+    foreach (
+        $oldVariants
+        as $oldVariant
+    ) {
+
+        if (
+            !empty(
+                $oldVariant[
+                    'thumbnail_url'
+                ]
+            )
+        ) {
+            $oldFiles[] =
+                $oldVariant[
+                    'thumbnail_url'
+                ];
+        }
+
+
+        if (
+            !empty(
+                $oldVariant[
+                    'model_url'
+                ]
+            )
+        ) {
+            $oldFiles[] =
+                $oldVariant[
+                    'model_url'
+                ];
+        }
+    }
+
+
+    /*
+     * Default variant.
+     */
+
+    $defaultVariant =
+        array_values(
+            $defaultVariants
+        )[0];
+
+
+    /*
+     * New physical files.
+     */
+
+    $newFiles =
+        $newImages;
+
+
+    foreach (
+        $variants
+        as $variant
+    ) {
+
+        $newFiles[] =
+            $variant[
+                'thumbnailUrl'
+            ];
+
+        $newFiles[] =
+            $variant[
+                'modelUrl'
+            ];
+    }
+
+
+    /*
+     * Database transaction.
+     */
+
+    $pdo->beginTransaction();
+
+
+    try {
+
+        /*
+         * Update main car.
+         */
+
+        $statement =
+            $pdo->prepare(
+                '
+                UPDATE cars
+
+                SET
+                    name = ?,
+                    brand_id = ?,
+                    year = ?,
+                    price = ?,
+
+                    color = ?,
+                    color_hex = ?,
+
+                    description = ?,
+
+                    thumbnail = ?,
+
+                    images = ?,
+
+                    sketchfab_url = NULL,
+
+                    model_path = ?,
+
+                    featured = ?,
+
+                    specs = ?,
+
+                    features = ?
+
+                WHERE id = ?
+                '
+            );
+
+
+        $statement->execute([
+            $b['name'],
+
+            $b['brandId'],
+
+            $b['year'],
+
+            $b['price'],
+
+            $defaultVariant[
+                'colorName'
+            ],
+
+            $defaultVariant[
+                'colorHex'
+            ],
+
+            $b['description'],
+
+            $defaultVariant[
+                'thumbnailUrl'
+            ],
+
+            json_encode(
+                $newImages
+            ),
+
+            $defaultVariant[
+                'modelUrl'
+            ],
+
+            !empty(
+                $b['featured']
+            ),
+
+            json_encode(
+                $b['specs']
+                ?? []
+            ),
+
+            json_encode(
+                $b['features']
+                ?? []
+            ),
+
+            $id,
+        ]);
+
+
+        /*
+         * Replace old variants.
+         */
+
+        $deleteVariants =
+            $pdo->prepare(
+                '
+                DELETE FROM car_variants
+
+                WHERE car_id = ?
+                '
+            );
+
+
+        $deleteVariants
+            ->execute([
+                $id
+            ]);
+
+
+        /*
+         * Insert current variants.
+         */
+
+        $variantStatement =
+            $pdo->prepare(
+                '
+                INSERT INTO car_variants
+                (
+                    car_id,
+                    color_name,
+                    color_hex,
+                    thumbnail_url,
+                    model_url,
+                    is_default,
+                    sort_order
+                )
+
+                VALUES
+                (
+                    ?,?,?,?,?,?,?
+                )
+                '
+            );
+
+
+        foreach (
+            $variants
+            as $index =>
+                $variant
+        ) {
+
+            $variantStatement
+                ->execute([
+                    $id,
+
+                    $variant[
+                        'colorName'
+                    ],
+
+                    $variant[
+                        'colorHex'
+                    ],
+
+                    $variant[
+                        'thumbnailUrl'
+                    ],
+
+                    $variant[
+                        'modelUrl'
+                    ],
+
+                    !empty(
+                        $variant[
+                            'isDefault'
+                        ]
+                    )
+                        ? 1
+                        : 0,
+
+                    $index,
+                ]);
+        }
+
+
+        $pdo->commit();
+
+
+    } catch (
+        Throwable $e
+    ) {
+
+        if (
+            $pdo->inTransaction()
+        ) {
+            $pdo->rollBack();
+        }
+
+
+        fail(
+            'Could not update vehicle: '
+            .
+            $e->getMessage(),
+            500
+        );
+    }
+
+
+    /*
+     * Delete files removed/replaced
+     * only AFTER successful DB update.
      */
 
     foreach (
-        array_unique($oldFiles)
+        array_unique(
+            $oldFiles
+        )
         as $oldFile
     ) {
+
         if (
             !in_array(
                 $oldFile,
@@ -1624,8 +2033,11 @@ if (
                 true
             )
         ) {
+
             deleteLocalUpload(
-                is_string($oldFile)
+                is_string(
+                    $oldFile
+                )
                     ? $oldFile
                     : null
             );
@@ -1633,7 +2045,7 @@ if (
     }
 
 
-   out(true);
+    out(true);
 }
 
 }
@@ -1909,6 +2321,15 @@ if (
     $files = $_FILES['files'];
 
     $urls = [];
+    if (!is_array($files['name'])) {
+    $files = [
+        'name' => [$files['name']],
+        'type' => [$files['type']],
+        'tmp_name' => [$files['tmp_name']],
+        'error' => [$files['error']],
+        'size' => [$files['size']],
+    ];
+}
 
     /*
      * Images go to:
