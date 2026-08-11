@@ -14,6 +14,7 @@ const LINKS = [
 
 export function Navbar() {
   const pathname = useLocation().pathname;
+  const isAdmin = pathname.startsWith("/admin");
   const [scrolled, setScrolled] = useState(false);
   const [open, setOpen] = useState(false);
 
@@ -25,6 +26,32 @@ export function Navbar() {
   }, []);
 
   useEffect(() => setOpen(false), [pathname]);
+  if (isAdmin) {
+  return (
+    <header
+      className={cn(
+        "fixed inset-x-0 top-0 z-50 transition-all duration-500",
+        scrolled ? "glass-strong py-3" : "bg-transparent py-5",
+      )}
+    >
+      <div className="mx-auto flex max-w-7xl items-center px-5 lg:px-8">
+        <Link
+          to="/admin"
+          className="group flex items-center gap-2.5"
+          aria-label="VELOCE admin"
+        >
+          <span className="grid size-9 place-items-center rounded-xl border border-champagne-400/40 bg-champagne-400/10 text-champagne-300">
+            <Gauge className="size-4.5" strokeWidth={1.75} />
+          </span>
+
+          <span className="font-display text-lg font-semibold tracking-[0.32em] uppercase">
+            Veloce
+          </span>
+        </Link>
+      </div>
+    </header>
+  );
+}
 
   return (
     <header
