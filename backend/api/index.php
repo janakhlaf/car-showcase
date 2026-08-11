@@ -610,6 +610,221 @@ if (
     ]);
 }
 
+/* =========================================================
+   ADMIN USERS
+========================================================= */
+
+
+/*
+|--------------------------------------------------------------------------
+| GET ALL ADMIN USERS
+|--------------------------------------------------------------------------
+*/
+
+if (
+    $route === 'admin/users'
+    &&
+    $method === 'GET'
+) {
+    admin();
+
+    $statement =
+        $pdo->query(
+            'SELECT
+                id,
+                name,
+                email,
+                created_at AS createdAt
+             FROM admin_users
+             ORDER BY created_at DESC'
+        );
+
+    $users =
+        $statement->fetchAll();
+
+    foreach ($users as &$user) {
+        $user['id'] =
+            (int)$user['id'];
+    }
+
+    unset($user);
+
+    out($users);
+}
+
+
+/*
+|--------------------------------------------------------------------------
+| CREATE ADMIN USER
+|--------------------------------------------------------------------------
+*/
+
+if (
+    $route === 'admin/users'
+    &&
+    $method === 'POST'
+) {
+    admin();
+
+    $b = body();
+
+    $name =
+        trim(
+            (string)(
+                $b['name']
+                ?? ''
+            )
+        );
+
+    $email =
+        strtolower(
+            trim(
+                (string)(
+                    $b['email']
+                    ?? ''
+                )
+            )
+        );
+
+    $password =
+        (string)(
+            $b['password']
+            ?? ''
+        );
+
+
+    /*
+     * Validate name
+     */
+
+    if ($name === '') {
+        fail(
+            'Name is required',
+            422
+        );
+    }
+
+
+    /*
+     * Validate email
+     */
+
+    if (
+        $email === ''
+        ||
+        !filter_var(
+            $email,
+            FILTER_VALIDATE_EMAIL
+        )
+    ) {
+        fail(
+            'Valid email is required',
+            422
+        );
+    }
+
+
+    /*
+     * Validate temporary password
+     */
+
+    if (
+        strlen($password) < 8
+    ) {
+        fail(
+            'Password must be at least 8 characters',
+            422
+        );
+    }
+
+
+    /*
+     * Check if email already exists
+     */
+
+    $checkStatement =
+        $pdo->prepare(
+            'SELECT id
+             FROM admin_users
+             WHERE email = ?
+             LIMIT 1'
+        );
+
+    $checkStatement->execute([
+        $email
+    ]);
+
+    if (
+        $checkStatement->fetch()
+    ) {
+        fail(
+            'An admin with this email already exists',
+            409
+        );
+    }
+
+
+    /*
+     * Hash password
+     */
+
+    $passwordHash =
+        password_hash(
+            $password,
+            PASSWORD_DEFAULT
+        );
+
+    if ($passwordHash === false) {
+        fail(
+            'Could not secure password',
+            500
+        );
+    }
+
+
+    /*
+     * Create account
+     */
+
+    $statement =
+        $pdo->prepare(
+            'INSERT INTO admin_users
+                (
+                    name,
+                    email,
+                    password_hash
+                )
+             VALUES (?, ?, ?)'
+        );
+
+    $statement->execute([
+        $name,
+        $email,
+        $passwordHash
+    ]);
+
+
+    /*
+     * Return created user.
+     *
+     * Important:
+     * Never return password/password_hash.
+     */
+
+    out(
+        [
+            'id' =>
+                (int)$pdo->lastInsertId(),
+
+            'name' =>
+                $name,
+
+            'email' =>
+                $email,
+        ],
+        201
+    );
+}
 
 /* =========================================================
    BRANDS

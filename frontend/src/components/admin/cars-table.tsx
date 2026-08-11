@@ -22,6 +22,7 @@ import {
   Star,
   Trash2,
   TriangleAlert,
+  Users,
 } from "lucide-react";
 import { toast } from "sonner";
 import type { Brand, CarWithBrand } from "@/db/schema";
@@ -121,20 +122,31 @@ export function CarsTable({
           <p className="mt-2 text-sm text-zinc-500">Signed in as {adminName}</p>
         </div>
         <div className="flex flex-wrap items-center gap-3">
-          <Link
-            to="/admin/cars/new"
-            className="inline-flex items-center gap-2 rounded-full bg-champagne-400 px-6 py-3 text-sm font-bold tracking-[0.12em] text-obsidian-950 uppercase transition-colors hover:bg-champagne-300"
-          >
-            <Plus className="size-4" /> Add vehicle
-          </Link>
-          <button
-            type="button"
-            onClick={logout}
-            className="inline-flex items-center gap-2 rounded-full border border-white/10 px-5 py-3 text-xs font-semibold tracking-[0.14em] text-zinc-400 uppercase transition-colors hover:border-white/30 hover:text-zinc-200"
-          >
-            <LogOut className="size-3.5" /> Sign out
-          </button>
-        </div>
+
+  <Link
+    to="/admin/users"
+    className="inline-flex items-center gap-2 rounded-full border border-white/10 px-5 py-3 text-xs font-semibold tracking-[0.14em] text-zinc-300 uppercase transition-colors hover:border-champagne-400/40 hover:text-champagne-300"
+  >
+    <Users className="size-4" />
+    Manage users
+  </Link>
+
+  <Link
+    to="/admin/cars/new"
+    className="inline-flex items-center gap-2 rounded-full bg-champagne-400 px-6 py-3 text-sm font-bold tracking-[0.12em] text-obsidian-950 uppercase transition-colors hover:bg-champagne-300"
+  >
+    <Plus className="size-4" /> Add vehicle
+  </Link>
+
+  <button
+    type="button"
+    onClick={logout}
+    className="inline-flex items-center gap-2 rounded-full border border-white/10 px-5 py-3 text-xs font-semibold tracking-[0.14em] text-zinc-400 uppercase transition-colors hover:border-white/30 hover:text-zinc-200"
+  >
+    <LogOut className="size-3.5" /> Sign out
+  </button>
+
+</div>
       </header>
 
       {/* KPIs */}
