@@ -449,8 +449,6 @@ function onVariantUpload(
     }
   }
 
-  
-
   setSaving(true);
   setUploading("save");
 
