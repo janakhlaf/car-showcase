@@ -11,6 +11,7 @@ type AdminUser = {
   role: "super_admin" | "manage_admin" | "editor_admin";
   mustChangePassword: boolean;
   createdAt: string;
+  isPrimaryAdmin: boolean;
 };
 
 type CurrentAdmin = {
@@ -263,7 +264,7 @@ async function deleteUser(
                   </td>
 
                   <td className="px-5 py-4">
-                    {currentAdmin?.id === user.id ? (
+                    {currentAdmin?.id === user.id ||user.isPrimaryAdmin ? (
                       <span className="text-zinc-400">
                         {user.role === "super_admin"
                           ? "Super Admin"
@@ -303,7 +304,7 @@ async function deleteUser(
                     </td>
 
                     <td className="px-5 py-4 text-right">
-                      {user.id !== currentAdmin?.id && (
+                      {user.id !== currentAdmin?.id &&!user.isPrimaryAdmin && (
                         <button
                           type="button"
                           disabled={deletingUserId === user.id}

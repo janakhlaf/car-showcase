@@ -290,6 +290,61 @@ function superAdmin(PDO $pdo): array
     return $user;
 }
 
+/*
+|--------------------------------------------------------------------------
+| REQUIRE ADMIN ROLE
+|--------------------------------------------------------------------------
+*/
+
+function requireAdminRole(
+    PDO $pdo,
+    array $allowedRoles
+): array {
+    $payload = admin();
+
+    $adminId = (int)$payload['sub'];
+
+    $statement = $pdo->prepare(
+        'SELECT
+            id,
+            name,
+            email,
+            role,
+            must_change_password
+         FROM admin_users
+         WHERE id = ?
+         LIMIT 1'
+    );
+
+    $statement->execute([
+        $adminId
+    ]);
+
+    $user = $statement->fetch();
+
+    if (!$user) {
+        fail(
+            'Admin account not found',
+            404
+        );
+    }
+
+    if (
+        !in_array(
+            $user['role'],
+            $allowedRoles,
+            true
+        )
+    ) {
+        fail(
+            'You do not have permission to perform this action',
+            403
+        );
+    }
+
+    return $user;
+}
+
 
 /*
  * Converts DB fields into frontend-friendly values.
@@ -832,14 +887,14 @@ if (
 
     $statement = $pdo->query(
         'SELECT
-            id,
-            name,
-            email,
-            role,
-            must_change_password AS mustChangePassword,
-            created_at AS createdAt
-         FROM admin_users
-         ORDER BY created_at DESC'
+    id,
+    name,
+    email,
+    role,
+    is_primary_admin AS isPrimaryAdmin,
+    must_change_password AS mustChangePassword,
+    created_at AS createdAt
+FROM admin_users'
     );
 
     $users = $statement->fetchAll();
@@ -848,6 +903,8 @@ if (
         $user['id'] = (int)$user['id'];
         $user['mustChangePassword'] =
             (bool)$user['mustChangePassword'];
+        $user['isPrimaryAdmin'] =
+            (bool)$user['isPrimaryAdmin'];    
     }
 
     unset($user);
@@ -1051,11 +1108,16 @@ if (
     }
 
     $statement = $pdo->prepare(
-        'SELECT id, name, email, role
-         FROM admin_users
-         WHERE id = ?
-         LIMIT 1'
-    );
+    'SELECT
+        id,
+        name,
+        email,
+        role,
+        is_primary_admin
+     FROM admin_users
+     WHERE id = ?
+     LIMIT 1'
+);
 
     $statement->execute([
         $targetId
@@ -1069,6 +1131,18 @@ if (
             404
         );
     }
+
+    /*
+ * The primary Super Admin role is permanent.
+ */
+if (
+    (int)$target['is_primary_admin'] === 1
+) {
+    fail(
+        'The primary Super Admin role cannot be changed',
+        403
+    );
+}
 
     // Don't demote the last Super Admin
     if (
@@ -1153,11 +1227,14 @@ if (
 
 
     $statement = $pdo->prepare(
-        'SELECT id, role
-         FROM admin_users
-         WHERE id = ?
-         LIMIT 1'
-    );
+    'SELECT
+        id,
+        role,
+        is_primary_admin
+     FROM admin_users
+     WHERE id = ?
+     LIMIT 1'
+);
 
     $statement->execute([
         $deleteId
@@ -1172,6 +1249,14 @@ if (
             404
         );
     }
+    if (
+    (int)$target['is_primary_admin'] === 1
+) {
+    fail(
+        'The primary Super Admin cannot be deleted',
+        403
+    );
+}
 
 
     /*
@@ -1927,7 +2012,13 @@ if (
 if (
     $method === 'DELETE'
 ) {
-    admin();
+    requireAdminRole(
+    $pdo,
+    [
+        'super_admin',
+        'manage_admin'
+    ]
+);
 
     /*
      * Get current car files before deleting DB rows.
@@ -2077,7 +2168,13 @@ if (
 if (
     $method === 'PUT'
 ) {
-    admin();
+    requireAdminRole(
+    $pdo,
+    [
+        'super_admin',
+        'editor_admin'
+    ]
+);
 
     $b = body();
 
@@ -2669,7 +2766,13 @@ if (
     &&
     $method === 'POST'
 ) {
-    admin();
+    requireAdminRole(
+        $pdo,
+        [
+            'super_admin',
+            'manage_admin'
+        ]
+    );
 
     $b = body();
 
