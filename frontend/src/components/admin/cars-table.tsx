@@ -19,6 +19,7 @@ import {
   Pencil,
   Plus,
   Search,
+  ShieldCheck,
   Star,
   Trash2,
   TriangleAlert,
@@ -126,13 +127,23 @@ export function CarsTable({
         <div className="flex flex-wrap items-center gap-3">
 
   {adminRole === "super_admin" && (
-  <Link
-    to="/admin/users"
-    className="inline-flex items-center gap-2 rounded-full border border-white/10 px-5 py-3 text-xs font-semibold tracking-[0.14em] text-zinc-300 uppercase transition-colors hover:border-champagne-400/40 hover:text-champagne-300"
-  >
-    <Users className="size-4" />
-    Manage users
-  </Link>
+  <>
+    <Link
+      to="/admin/users"
+      className="inline-flex items-center gap-2 rounded-full border border-white/10 px-5 py-3 text-xs font-semibold tracking-[0.14em] text-zinc-300 uppercase transition-colors hover:border-champagne-400/40 hover:text-champagne-300"
+    >
+      <Users className="size-4" />
+      Manage users
+    </Link>
+
+    <Link
+      to="/admin/roles"
+      className="inline-flex items-center gap-2 rounded-full border border-white/10 px-5 py-3 text-xs font-semibold tracking-[0.14em] text-zinc-300 uppercase transition-colors hover:border-champagne-400/40 hover:text-champagne-300"
+    >
+      <ShieldCheck className="size-4" />
+      Roles & Permissions
+    </Link>
+  </>
 )}
 
   <Link

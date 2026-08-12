@@ -13,6 +13,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'OPTIONS') {
 
 require_once __DIR__ . '/../config/database.php';
 require_once __DIR__ . '/../config/jwt.php';
+require_once __DIR__ . '/../helpers/permissions.php';
 
 
 header('Content-Type: application/json; charset=utf-8');
@@ -392,6 +393,7 @@ $method =
     $_SERVER['REQUEST_METHOD'];
 
 $pdo = db();
+require_once __DIR__ . '/../routes/admin-roles.php';
 
 
 /* =========================================================
