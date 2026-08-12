@@ -1,9 +1,20 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { KeyRound, Mail, User, UserPlus } from "lucide-react";
+import {
+  KeyRound,
+  Mail,
+  ShieldCheck,
+  User,
+  UserPlus,
+} from "lucide-react";
 import { toast } from "sonner";
 import axios from "axios";
 import { adminApi } from "@/lib/admin-auth";
+
+type AdminRole =
+  | "super_admin"
+  | "manage_admin"
+  | "editor_admin";
 
 export function AdminUserForm() {
   const navigate = useNavigate();
@@ -11,9 +22,14 @@ export function AdminUserForm() {
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const [role, setRole] =
+    useState<AdminRole>("editor_admin");
+
   const [saving, setSaving] = useState(false);
 
-  async function onSubmit(e: React.FormEvent) {
+  async function onSubmit(
+    e: React.FormEvent
+  ) {
     e.preventDefault();
 
     if (!name.trim()) {
@@ -39,10 +55,13 @@ export function AdminUserForm() {
           name: name.trim(),
           email: email.trim(),
           password,
+          role,
         }
       );
 
-      toast.success("Admin user created");
+      toast.success(
+        "Admin user created. They must change their password on first login."
+      );
 
       navigate("/admin/users");
 
@@ -66,7 +85,9 @@ export function AdminUserForm() {
       <div className="mb-8">
         <button
           type="button"
-          onClick={() => navigate("/admin/users")}
+          onClick={() =>
+            navigate("/admin/users")
+          }
           className="text-xs font-semibold tracking-[0.16em] text-zinc-500 uppercase hover:text-champagne-300"
         >
           ← Users
@@ -84,7 +105,7 @@ export function AdminUserForm() {
         </h1>
 
         <p className="mt-2 text-sm text-zinc-500">
-          Create an account that can access the admin dashboard.
+          Create an admin account and assign its permissions.
         </p>
       </div>
 
@@ -105,7 +126,9 @@ export function AdminUserForm() {
               type="text"
               required
               value={name}
-              onChange={(e) => setName(e.target.value)}
+              onChange={(e) =>
+                setName(e.target.value)
+              }
               placeholder="e.g. Ahmad Saleh"
               className="w-full rounded-xl border border-white/10 bg-obsidian-900/80 py-3 pr-4 pl-11 text-sm outline-none placeholder:text-zinc-600 focus:border-champagne-400/60"
             />
@@ -124,7 +147,9 @@ export function AdminUserForm() {
               type="email"
               required
               value={email}
-              onChange={(e) => setEmail(e.target.value)}
+              onChange={(e) =>
+                setEmail(e.target.value)
+              }
               placeholder="user@example.com"
               className="w-full rounded-xl border border-white/10 bg-obsidian-900/80 py-3 pr-4 pl-11 text-sm outline-none placeholder:text-zinc-600 focus:border-champagne-400/60"
             />
@@ -144,12 +169,70 @@ export function AdminUserForm() {
               required
               minLength={8}
               value={password}
-              onChange={(e) => setPassword(e.target.value)}
+              onChange={(e) =>
+                setPassword(e.target.value)
+              }
               placeholder="Minimum 8 characters"
               className="w-full rounded-xl border border-white/10 bg-obsidian-900/80 py-3 pr-4 pl-11 text-sm outline-none placeholder:text-zinc-600 focus:border-champagne-400/60"
             />
           </span>
+
+          <p className="mt-2 text-xs text-zinc-600">
+            The new admin will be required to change this password on first login.
+          </p>
         </label>
+
+        <label className="mt-5 block">
+          <span className="text-[11px] font-semibold tracking-[0.2em] text-zinc-500 uppercase">
+            Admin role
+          </span>
+
+          <span className="relative mt-2 block">
+            <ShieldCheck className="absolute top-1/2 left-4 size-4 -translate-y-1/2 text-zinc-500" />
+
+            <select
+              value={role}
+              onChange={(e) =>
+                setRole(
+                  e.target.value as AdminRole
+                )
+              }
+              className="w-full appearance-none rounded-xl border border-white/10 bg-obsidian-900/80 py-3 pr-4 pl-11 text-sm outline-none focus:border-champagne-400/60"
+            >
+              <option value="super_admin">
+                Super Admin
+              </option>
+
+              <option value="manage_admin">
+                Manage Admin
+              </option>
+
+              <option value="editor_admin">
+                Editor Admin
+              </option>
+            </select>
+          </span>
+        </label>
+
+        <div className="mt-4 rounded-xl border border-white/10 bg-white/[0.03] p-4 text-xs leading-6 text-zinc-500">
+          {role === "super_admin" && (
+            <p>
+              Full access, including admin account management and all vehicle actions.
+            </p>
+          )}
+
+          {role === "manage_admin" && (
+            <p>
+              Can add and delete vehicles, but cannot edit vehicles or manage admin accounts.
+            </p>
+          )}
+
+          {role === "editor_admin" && (
+            <p>
+              Can edit vehicles only. Cannot add, delete, or manage admin accounts.
+            </p>
+          )}
+        </div>
 
         <button
           type="submit"

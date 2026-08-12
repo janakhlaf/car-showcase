@@ -8,6 +8,7 @@ function useAdminData() {
     cars: CarWithBrand[];
     brands: Brand[];
     name: string;
+    role: "super_admin" | "manage_admin" | "editor_admin";
   } | null>(null);
 
   useEffect(() => {
@@ -23,10 +24,12 @@ function useAdminData() {
   console.log("ME RESPONSE:", m.data);
 
   setData({
-    cars: c.data.data,
-    brands: b.data.data,
-    name: m.data.data?.email ?? m.data.email ?? "Admin",
-  });
+  cars: c.data.data,
+  brands: b.data.data,
+  name: m.data.data?.email ?? m.data.email ?? "Admin",
+  role: m.data.data?.role ?? "editor_admin",
+});
+
 })
       .catch((error) => {
   console.log("FULL ADMIN ERROR:", error);
@@ -40,6 +43,24 @@ function useAdminData() {
   }, [nav]);
 
   return data;
-}export function AdminPage(){const d=useAdminData(); return d?<CarsTable cars={d.cars} brands={d.brands} adminName={d.name}/>:<div className="min-h-screen pt-40 text-center">Loading...</div>}
+}
+export function AdminPage(){
+  const d = useAdminData();
+
+  return d
+    ? (
+      <CarsTable
+        cars={d.cars}
+        brands={d.brands}
+        adminName={d.name}
+        adminRole={d.role}
+      />
+    )
+    : (
+      <div className="min-h-screen pt-40 text-center">
+        Loading...
+      </div>
+    );
+}
 export function NewCarPage(){const d=useAdminData(); return d?<div className="mx-auto max-w-5xl px-5 pt-28 pb-16"><CarForm mode="create" brands={d.brands}/></div>:null}
 export function EditCarPage(){const d=useAdminData(); const {id}=useParams(); const car=d?.cars.find(c=>String(c.id)===id); return d&&car?<div className="mx-auto max-w-5xl px-5 pt-28 pb-16"><CarForm mode="edit" initial={car} brands={d.brands}/></div>:null}

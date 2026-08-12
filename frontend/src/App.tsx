@@ -6,6 +6,7 @@ import { Footer } from "@/components/site/footer";
 import { HomePage } from "@/pages/HomePage";
 import { CarsPage } from "@/pages/CarsPage";
 import { CarDetailPage } from "@/pages/CarDetailPage";
+import { ChangePasswordPage } from "@/components/admin/change-password-page";
 
 import {
   AdminPage,
@@ -47,6 +48,11 @@ export default function App() {
             <Route
               path="/admin/login"
               element={<AdminLoginPage />}
+            />
+
+            <Route
+              path="/admin/change-password"
+              element={<ChangePasswordPage />}
             />
 
             <Route

@@ -262,6 +262,34 @@ function admin(): array
     }
 }
 
+function superAdmin(PDO $pdo): array
+{
+    $payload = admin();
+
+    $adminId = (int)$payload['sub'];
+
+    $statement = $pdo->prepare(
+        'SELECT id, name, email, role, must_change_password
+         FROM admin_users
+         WHERE id = ?
+         LIMIT 1'
+    );
+
+    $statement->execute([$adminId]);
+
+    $user = $statement->fetch();
+
+    if (!$user) {
+        fail('Admin account not found', 404);
+    }
+
+    if ($user['role'] !== 'super_admin') {
+        fail('Super admin permission required', 403);
+    }
+
+    return $user;
+}
+
 
 /*
  * Converts DB fields into frontend-friendly values.
@@ -333,6 +361,7 @@ if (
     &&
     $method === 'POST'
 ) {
+    
     $b = body();
 
     $statement =
@@ -367,14 +396,18 @@ if (
 
 
     $admin = [
-        'id' => (int)$user['id'],
-        'name' => $user['name'],
-        'email' => $user['email'],
-    ];
+    'id' => (int)$user['id'],
+    'name' => $user['name'],
+    'email' => $user['email'],
+    'role' => $user['role'],
+    'mustChangePassword' => (bool)$user['must_change_password'],
+];
 
     $accessToken = createAccessToken($admin);
-    $refresh = createRefreshToken();
-    $refreshStatement = $pdo->prepare(
+
+$refresh = createRefreshToken();
+
+$refreshStatement = $pdo->prepare(
     'INSERT INTO refresh_tokens
      (admin_id, token_hash, expires_at)
      VALUES (?, ?, ?)'
@@ -386,7 +419,7 @@ $refreshStatement->execute([
     $refresh['expiresAt']
 ]);
 
-    out([
+out([
     'admin' => $admin,
     'accessToken' => $accessToken,
     'refreshToken' => $refresh['token'],
@@ -442,23 +475,25 @@ if (
     */
 
     $statement = $pdo->prepare(
-        'SELECT
-            rt.admin_id,
-            rt.expires_at,
-            au.id,
-            au.name,
-            au.email
+    'SELECT
+        rt.admin_id,
+        rt.expires_at,
+        au.id,
+        au.name,
+        au.email,
+        au.role,
+        au.must_change_password
 
-         FROM refresh_tokens rt
+     FROM refresh_tokens rt
 
-         JOIN admin_users au
-            ON au.id = rt.admin_id
+     JOIN admin_users au
+        ON au.id = rt.admin_id
 
-         WHERE rt.token_hash = ?
-         AND rt.revoked = 0
+     WHERE rt.token_hash = ?
+     AND rt.revoked = 0
 
-         LIMIT 1'
-    );
+     LIMIT 1'
+);
 
     $statement->execute([
         $tokenHash
@@ -505,10 +540,12 @@ if (
     */
 
     $admin = [
-        'id' => (int)$row['id'],
-        'name' => $row['name'],
-        'email' => $row['email']
-    ];
+    'id' => (int)$row['id'],
+    'name' => $row['name'],
+    'email' => $row['email'],
+    'role' => $row['role'],
+    'mustChangePassword' => (bool)$row['must_change_password']
+];
 
 
     /*
@@ -606,15 +643,17 @@ if (
     $adminId = (int)$payload['sub'];
 
     $statement = $pdo->prepare(
-        'SELECT
-            id,
-            name,
-            email,
-            created_at AS createdAt
-         FROM admin_users
-         WHERE id = ?
-         LIMIT 1'
-    );
+    'SELECT
+        id,
+        name,
+        email,
+        role,
+        must_change_password AS mustChangePassword,
+        created_at AS createdAt
+     FROM admin_users
+     WHERE id = ?
+     LIMIT 1'
+);
 
     $statement->execute([
         $adminId
@@ -630,10 +669,146 @@ if (
     }
 
     out([
-        'id' => (int)$user['id'],
-        'name' => $user['name'],
-        'email' => $user['email'],
-        'createdAt' => $user['createdAt']
+    'id' => (int)$user['id'],
+    'name' => $user['name'],
+    'email' => $user['email'],
+    'role' => $user['role'],
+    'mustChangePassword' => (bool)$user['mustChangePassword'],
+    'createdAt' => $user['createdAt']
+]);
+}
+
+/* =========================================================
+   ADMIN CHANGE PASSWORD
+========================================================= */
+
+if (
+    $route === 'admin/change-password'
+    &&
+    $method === 'POST'
+) {
+    $payload = admin();
+
+    $adminId = (int)$payload['sub'];
+
+    $b = body();
+
+    $currentPassword =
+        (string)($b['currentPassword'] ?? '');
+
+    $newPassword =
+        (string)($b['newPassword'] ?? '');
+
+    $confirmPassword =
+        (string)($b['confirmPassword'] ?? '');
+
+
+    if ($currentPassword === '') {
+        fail(
+            'Current password is required',
+            422
+        );
+    }
+
+
+    if (strlen($newPassword) < 8) {
+        fail(
+            'New password must be at least 8 characters',
+            422
+        );
+    }
+
+
+    if ($newPassword !== $confirmPassword) {
+        fail(
+            'New passwords do not match',
+            422
+        );
+    }
+
+
+    $statement = $pdo->prepare(
+        'SELECT password_hash
+         FROM admin_users
+         WHERE id = ?
+         LIMIT 1'
+    );
+
+    $statement->execute([
+        $adminId
+    ]);
+
+    $user = $statement->fetch();
+
+
+    if (!$user) {
+        fail(
+            'Admin account not found',
+            404
+        );
+    }
+
+
+    if (
+        !password_verify(
+            $currentPassword,
+            $user['password_hash']
+        )
+    ) {
+        fail(
+            'Current password is incorrect',
+            401
+        );
+    }
+
+
+    $newPasswordHash =
+        password_hash(
+            $newPassword,
+            PASSWORD_DEFAULT
+        );
+
+
+    if ($newPasswordHash === false) {
+        fail(
+            'Could not secure new password',
+            500
+        );
+    }
+
+
+    $updateStatement = $pdo->prepare(
+        'UPDATE admin_users
+         SET
+            password_hash = ?,
+            must_change_password = 0
+         WHERE id = ?'
+    );
+
+    $updateStatement->execute([
+        $newPasswordHash,
+        $adminId
+    ]);
+
+
+    /*
+     * Cancel old refresh sessions after password change.
+     */
+    $revokeStatement = $pdo->prepare(
+        'UPDATE refresh_tokens
+         SET revoked = 1
+         WHERE admin_id = ?
+           AND revoked = 0'
+    );
+
+    $revokeStatement->execute([
+        $adminId
+    ]);
+
+
+    out([
+        'success' => true,
+        'mustChangePassword' => false
     ]);
 }
 
@@ -653,25 +828,26 @@ if (
     &&
     $method === 'GET'
 ) {
-    admin();
+    superAdmin($pdo);
 
-    $statement =
-        $pdo->query(
-            'SELECT
-                id,
-                name,
-                email,
-                created_at AS createdAt
-             FROM admin_users
-             ORDER BY created_at DESC'
-        );
+    $statement = $pdo->query(
+        'SELECT
+            id,
+            name,
+            email,
+            role,
+            must_change_password AS mustChangePassword,
+            created_at AS createdAt
+         FROM admin_users
+         ORDER BY created_at DESC'
+    );
 
-    $users =
-        $statement->fetchAll();
+    $users = $statement->fetchAll();
 
     foreach ($users as &$user) {
-        $user['id'] =
-            (int)$user['id'];
+        $user['id'] = (int)$user['id'];
+        $user['mustChangePassword'] =
+            (bool)$user['mustChangePassword'];
     }
 
     unset($user);
@@ -691,51 +867,34 @@ if (
     &&
     $method === 'POST'
 ) {
-    admin();
+    superAdmin($pdo);
 
     $b = body();
 
-    $name =
-        trim(
-            (string)(
-                $b['name']
-                ?? ''
-            )
-        );
+    $name = trim(
+        (string)($b['name'] ?? '')
+    );
 
-    $email =
-        strtolower(
-            trim(
-                (string)(
-                    $b['email']
-                    ?? ''
-                )
-            )
-        );
+    $email = strtolower(
+        trim(
+            (string)($b['email'] ?? '')
+        )
+    );
 
     $password =
-        (string)(
-            $b['password']
-            ?? ''
-        );
+        (string)($b['password'] ?? '');
+
+    $role =
+        (string)($b['role'] ?? 'editor_admin');
 
 
-    /*
-     * Validate name
-     */
-
+    // Name
     if ($name === '') {
-        fail(
-            'Name is required',
-            422
-        );
+        fail('Name is required', 422);
     }
 
 
-    /*
-     * Validate email
-     */
-
+    // Email
     if (
         $email === ''
         ||
@@ -744,46 +903,48 @@ if (
             FILTER_VALIDATE_EMAIL
         )
     ) {
+        fail('Valid email is required', 422);
+    }
+
+
+    // Temporary password
+    if (strlen($password) < 8) {
         fail(
-            'Valid email is required',
+            'Temporary password must be at least 8 characters',
             422
         );
     }
 
 
-    /*
-     * Validate temporary password
-     */
+    // Allowed roles
+    $allowedRoles = [
+        'super_admin',
+        'manage_admin',
+        'editor_admin'
+    ];
 
     if (
-        strlen($password) < 8
+        !in_array(
+            $role,
+            $allowedRoles,
+            true
+        )
     ) {
-        fail(
-            'Password must be at least 8 characters',
-            422
-        );
+        fail('Invalid admin role', 422);
     }
 
 
-    /*
-     * Check if email already exists
-     */
+    // Duplicate email
+    $checkStatement = $pdo->prepare(
+        'SELECT id
+         FROM admin_users
+         WHERE email = ?
+         LIMIT 1'
+    );
 
-    $checkStatement =
-        $pdo->prepare(
-            'SELECT id
-             FROM admin_users
-             WHERE email = ?
-             LIMIT 1'
-        );
+    $checkStatement->execute([$email]);
 
-    $checkStatement->execute([
-        $email
-    ]);
-
-    if (
-        $checkStatement->fetch()
-    ) {
+    if ($checkStatement->fetch()) {
         fail(
             'An admin with this email already exists',
             409
@@ -791,66 +952,281 @@ if (
     }
 
 
-    /*
-     * Hash password
-     */
-
-    $passwordHash =
-        password_hash(
-            $password,
-            PASSWORD_DEFAULT
-        );
+    // Hash temporary password
+    $passwordHash = password_hash(
+        $password,
+        PASSWORD_DEFAULT
+    );
 
     if ($passwordHash === false) {
+        fail('Could not secure password', 500);
+    }
+
+
+    // Every NEW admin must change password
+    $statement = $pdo->prepare(
+        'INSERT INTO admin_users
+        (
+            name,
+            email,
+            role,
+            password_hash,
+            must_change_password
+        )
+        VALUES (?, ?, ?, ?, 1)'
+    );
+
+    $statement->execute([
+        $name,
+        $email,
+        $role,
+        $passwordHash
+    ]);
+
+
+    out(
+        [
+            'id' => (int)$pdo->lastInsertId(),
+            'name' => $name,
+            'email' => $email,
+            'role' => $role,
+            'mustChangePassword' => true
+        ],
+        201
+    );
+}
+
+/*
+|--------------------------------------------------------------------------
+| UPDATE ADMIN ROLE
+|--------------------------------------------------------------------------
+*/
+
+if (
+    preg_match(
+        '#^admin/users/(\d+)/role$#',
+        $route,
+        $matches
+    )
+    &&
+    $method === 'PATCH'
+) {
+    $currentAdmin = superAdmin($pdo);
+
+    $targetId = (int)$matches[1];
+
+    $b = body();
+
+    $newRole =
+        (string)($b['role'] ?? '');
+
+    $allowedRoles = [
+        'super_admin',
+        'manage_admin',
+        'editor_admin'
+    ];
+
+    if (
+        !in_array(
+            $newRole,
+            $allowedRoles,
+            true
+        )
+    ) {
         fail(
-            'Could not secure password',
-            500
+            'Invalid admin role',
+            422
+        );
+    }
+
+    // Super Admin cannot change their own role
+    if (
+        $targetId ===
+        (int)$currentAdmin['id']
+    ) {
+        fail(
+            'You cannot change your own role',
+            422
+        );
+    }
+
+    $statement = $pdo->prepare(
+        'SELECT id, name, email, role
+         FROM admin_users
+         WHERE id = ?
+         LIMIT 1'
+    );
+
+    $statement->execute([
+        $targetId
+    ]);
+
+    $target = $statement->fetch();
+
+    if (!$target) {
+        fail(
+            'Admin account not found',
+            404
+        );
+    }
+
+    // Don't demote the last Super Admin
+    if (
+        $target['role'] === 'super_admin'
+        &&
+        $newRole !== 'super_admin'
+    ) {
+        $superAdminCount =
+            (int)$pdo
+                ->query(
+                    "SELECT COUNT(*)
+                     FROM admin_users
+                     WHERE role = 'super_admin'"
+                )
+                ->fetchColumn();
+
+        if ($superAdminCount <= 1) {
+            fail(
+                'The last super admin cannot be demoted',
+                422
+            );
+        }
+    }
+
+    $updateStatement =
+        $pdo->prepare(
+            'UPDATE admin_users
+             SET role = ?
+             WHERE id = ?'
+        );
+
+    $updateStatement->execute([
+        $newRole,
+        $targetId
+    ]);
+
+    // Revoke sessions of changed admin
+    $revokeStatement =
+        $pdo->prepare(
+            'UPDATE refresh_tokens
+             SET revoked = 1
+             WHERE admin_id = ?
+               AND revoked = 0'
+        );
+
+    $revokeStatement->execute([
+        $targetId
+    ]);
+
+    out([
+        'id' => $targetId,
+        'role' => $newRole
+    ]);
+}
+
+if (
+    preg_match(
+        '#^admin/users/(\d+)$#',
+        $route,
+        $matches
+    )
+    &&
+    $method === 'DELETE'
+) {
+    $currentAdmin =
+        superAdmin($pdo);
+
+    $deleteId =
+        (int)$matches[1];
+
+
+    // ما بخلي الأدمن يحذف نفسه
+    if (
+        $deleteId ===
+        (int)$currentAdmin['id']
+    ) {
+        fail(
+            'You cannot delete your own account',
+            422
+        );
+    }
+
+
+    $statement = $pdo->prepare(
+        'SELECT id, role
+         FROM admin_users
+         WHERE id = ?
+         LIMIT 1'
+    );
+
+    $statement->execute([
+        $deleteId
+    ]);
+
+    $target =
+        $statement->fetch();
+
+    if (!$target) {
+        fail(
+            'Admin account not found',
+            404
         );
     }
 
 
     /*
-     * Create account
+     * إذا الحساب المراد حذفه Super Admin،
+     * نتأكد أنه مش آخر Super Admin.
      */
-
-    $statement =
-        $pdo->prepare(
-            'INSERT INTO admin_users
-                (
-                    name,
-                    email,
-                    password_hash
+    if (
+        $target['role'] ===
+        'super_admin'
+    ) {
+        $superAdminCount =
+            (int)$pdo
+                ->query(
+                    "SELECT COUNT(*)
+                     FROM admin_users
+                     WHERE role = 'super_admin'"
                 )
-             VALUES (?, ?, ?)'
+                ->fetchColumn();
+
+        if ($superAdminCount <= 1) {
+            fail(
+                'The last super admin cannot be deleted',
+                422
+            );
+        }
+    }
+
+
+    // نحذف refresh tokens تبع الحساب أولاً
+    $tokenStatement =
+        $pdo->prepare(
+            'DELETE FROM refresh_tokens
+             WHERE admin_id = ?'
         );
 
-    $statement->execute([
-        $name,
-        $email,
-        $passwordHash
+    $tokenStatement->execute([
+        $deleteId
     ]);
 
 
-    /*
-     * Return created user.
-     *
-     * Important:
-     * Never return password/password_hash.
-     */
+    // نحذف الحساب
+    $deleteStatement =
+        $pdo->prepare(
+            'DELETE FROM admin_users
+             WHERE id = ?'
+        );
 
-    out(
-        [
-            'id' =>
-                (int)$pdo->lastInsertId(),
+    $deleteStatement->execute([
+        $deleteId
+    ]);
 
-            'name' =>
-                $name,
 
-            'email' =>
-                $email,
-        ],
-        201
-    );
+    out([
+        'success' => true
+    ]);
 }
 
 /* =========================================================

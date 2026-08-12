@@ -32,11 +32,13 @@ export function CarsTable({
   cars: initialCars,
   brands,
   adminName,
+  adminRole,
 }: {
   cars: CarWithBrand[];
   brands: Brand[];
   adminName: string;
-}) {
+  adminRole: "super_admin" | "manage_admin" | "editor_admin";
+})  {
   const navigate = useNavigate();
   const [cars, setCars] = useState(initialCars);
   const [query, setQuery] = useState("");
@@ -123,6 +125,7 @@ export function CarsTable({
         </div>
         <div className="flex flex-wrap items-center gap-3">
 
+  {adminRole === "super_admin" && (
   <Link
     to="/admin/users"
     className="inline-flex items-center gap-2 rounded-full border border-white/10 px-5 py-3 text-xs font-semibold tracking-[0.14em] text-zinc-300 uppercase transition-colors hover:border-champagne-400/40 hover:text-champagne-300"
@@ -130,6 +133,7 @@ export function CarsTable({
     <Users className="size-4" />
     Manage users
   </Link>
+)}
 
   <Link
     to="/admin/cars/new"

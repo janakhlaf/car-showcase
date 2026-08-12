@@ -49,12 +49,32 @@ sessionStorage.setItem(
   admin.name
 );
 
-    toast.success("Welcome back", {
-      description:
-        "Signed in to the admin dashboard.",
-    });
+sessionStorage.setItem(
+  "adminRole",
+  admin.role
+);
 
-    navigate("/admin");
+sessionStorage.setItem(
+  "adminMustChangePassword",
+  String(admin.mustChangePassword)
+);
+
+    if (admin.mustChangePassword) {
+  toast.info("Password change required", {
+    description:
+      "You must change your temporary password before continuing.",
+  });
+
+  navigate("/admin/change-password");
+  return;
+}
+
+toast.success("Welcome back", {
+  description:
+    "Signed in to the admin dashboard.",
+});
+
+navigate("/admin");
 
   } catch (error) {
     const message = axios.isAxiosError(error)
