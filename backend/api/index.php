@@ -393,7 +393,9 @@ $method =
     $_SERVER['REQUEST_METHOD'];
 
 $pdo = db();
+
 require_once __DIR__ . '/../routes/admin-roles.php';
+require_once __DIR__ . '/../routes/site-settings.php';
 
 
 /* =========================================================
@@ -1550,16 +1552,18 @@ if (
 
 
     $colors =
-        $pdo
-            ->query(
-                'SELECT
-                    color,
-                    MIN(color_hex) AS colorHex
-                 FROM cars
-                 GROUP BY color
-                 ORDER BY color'
-            )
-            ->fetchAll();
+    $pdo
+        ->query(
+            'SELECT
+                color_name AS color,
+                MIN(color_hex) AS colorHex
+             FROM car_variants
+             WHERE color_name IS NOT NULL
+               AND color_name <> \'\'
+             GROUP BY color_name
+             ORDER BY color_name'
+        )
+        ->fetchAll();
 
 
     $years =
@@ -1673,15 +1677,20 @@ if (
      * Filter color using default variant if available.
      */
     if (
-        !empty($_GET['color'])
-    ) {
-        $where[] =
-            'COALESCE(v.color_name, c.color) = ?';
+    !empty($_GET['color'])
+) {
+    $where[] = '
+        EXISTS (
+            SELECT 1
+            FROM car_variants cv
+            WHERE cv.car_id = c.id
+              AND cv.color_name = ?
+        )
+    ';
 
-        $args[] =
-            $_GET['color'];
-    }
-
+    $args[] =
+        $_GET['color'];
+}
 
     if (
         !empty($_GET['year'])
@@ -1831,10 +1840,6 @@ if (
 
 
             c.images,
-
-
-            c.sketchfab_url
-                AS sketchfabUrl,
 
 
             COALESCE(
@@ -2000,9 +2005,6 @@ if (
 
                     c.images,
 
-
-                    c.sketchfab_url
-                        AS sketchfabUrl,
 
 
                     COALESCE(
@@ -2606,8 +2608,6 @@ if (
 
                     images = ?,
 
-                    sketchfab_url = NULL,
-
                     model_path = ?,
 
                     featured = ?,
@@ -2875,32 +2875,30 @@ if (
          */
 
         $statement =
-            $pdo->prepare(
-                '
-                INSERT INTO cars
-                (
-                    name,
-                    brand_id,
-                    year,
-                    price,
-                    color,
-                    color_hex,
-                    description,
-                    thumbnail,
-                    images,
-                    sketchfab_url,
-                    model_path,
-                    featured,
-                    specs,
-                    features
-                )
-
-                VALUES
-                (
-                    ?,?,?,?,?,?,?,?,?,?,?,?,?,?
-                )
-                '
-            );
+    $pdo->prepare(
+        '
+        INSERT INTO cars
+        (
+            name,
+            brand_id,
+            year,
+            price,
+            color,
+            color_hex,
+            description,
+            thumbnail,
+            images,
+            model_path,
+            featured,
+            specs,
+            features
+        )
+        VALUES
+        (
+            ?,?,?,?,?,?,?,?,?,?,?,?,?
+        )
+        '
+    );
 
 
         $statement->execute([
@@ -2925,9 +2923,6 @@ if (
                 $b['images']
                 ?? []
             ),
-
-            $b['sketchfabUrl']
-                ?? null,
 
             $defaultVariant['modelUrl']
                 ?? ($b['modelPath'] ?? null),

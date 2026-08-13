@@ -14,6 +14,7 @@ import {
   CircleDollarSign,
   ExternalLink,
   Layers,
+  LayoutDashboard,
   Loader2,
   LogOut,
   Pencil,
@@ -145,6 +146,14 @@ export function CarsTable({
       <ShieldCheck className="size-4" />
       Roles & Permissions
     </Link>
+
+    <Link
+  to="/admin/content"
+  className="inline-flex items-center gap-2 rounded-full border border-white/10 px-5 py-3 text-xs font-semibold tracking-[0.14em] text-zinc-300 uppercase transition-colors hover:border-champagne-400/40 hover:text-champagne-300"
+>
+  <LayoutDashboard className="size-4" />
+  Website Content
+</Link>
   </>
 )}
 

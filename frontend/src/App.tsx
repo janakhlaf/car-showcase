@@ -19,6 +19,7 @@ import { AdminUserForm } from "@/components/admin/admin-user-form";
 import { AdminUsersPage } from "@/components/admin/admin-users-page";
 import { AdminProfilePage } from "@/components/admin/admin-profile-page";
 import { AdminRolesPage } from "@/components/admin/admin-roles-page";
+import { WebsiteContentPage } from "@/components/admin/website-content-page";
 
 
 export default function App() {
@@ -71,6 +72,11 @@ export default function App() {
             <Route
               path="/admin/roles"
               element={<AdminRolesPage />}
+            />
+
+            <Route
+              path="/admin/content"
+              element={<WebsiteContentPage />}
             />
 
             <Route

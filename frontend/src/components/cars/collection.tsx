@@ -55,6 +55,16 @@ export function Collection() {
   const [count, setCount] = useState(0);
   const [loading, setLoading] = useState(true);
   const [panelOpen, setPanelOpen] = useState(false);
+  const [showAllBrands, setShowAllBrands] = useState(false);
+const [showAllColors, setShowAllColors] = useState(false);
+
+const visibleBrands = showAllBrands
+  ? (meta?.brands ?? [])
+  : (meta?.brands ?? []).slice(0, 4);
+
+const visibleColors = showAllColors
+  ? (meta?.colors ?? [])
+  : (meta?.colors ?? []).slice(0, 5);
 
   useEffect(() => {
     axios
@@ -158,71 +168,108 @@ export function Collection() {
 
         <div className={cn("mt-5 grid-cols-1 gap-5 md:grid-cols-3", panelOpen ? "grid" : "hidden lg:grid")}>
           {/* brand pills */}
-          <div>
-            <p className="text-[11px] font-semibold tracking-[0.2em] text-zinc-500 uppercase">Marque</p>
-            <div className="mt-2.5 flex flex-wrap gap-2">
-              <button
-                type="button"
-                onClick={() => set("brand")("")}
-                className={cn(
-                  "rounded-full border px-3.5 py-1.5 text-xs font-semibold transition-colors",
-                  !filters.brand
-                    ? "border-champagne-400/60 bg-champagne-400/15 text-champagne-300"
-                    : "border-white/10 text-zinc-400 hover:border-white/30",
-                )}
-              >
-                All
-              </button>
-              {meta?.brands.map((b) => (
-                <button
-                  key={b.id}
-                  type="button"
-                  onClick={() => set("brand")(filters.brand === String(b.id) ? "" : String(b.id))}
-                  className={cn(
-                    "rounded-full border px-3.5 py-1.5 text-xs font-semibold transition-colors",
-                    filters.brand === String(b.id)
-                      ? "border-champagne-400/60 bg-champagne-400/15 text-champagne-300"
-                      : "border-white/10 text-zinc-400 hover:border-white/30",
-                  )}
-                >
-                  {b.name}
-                </button>
-              ))}
-            </div>
-          </div>
+<div>
+  <p className="text-[11px] font-semibold tracking-[0.2em] text-zinc-500 uppercase">
+    Marque
+  </p>
+
+  <div className="mt-2.5 flex flex-wrap gap-2">
+    <button
+      type="button"
+      onClick={() => set("brand")("")}
+      className={cn(
+        "rounded-full border px-3.5 py-1.5 text-xs font-semibold transition-colors",
+        !filters.brand
+          ? "border-champagne-400/60 bg-champagne-400/15 text-champagne-300"
+          : "border-white/10 text-zinc-400 hover:border-white/30",
+      )}
+    >
+      All
+    </button>
+
+    {visibleBrands.map((b) => (
+      <button
+        key={b.id}
+        type="button"
+        onClick={() =>
+          set("brand")(filters.brand === String(b.id) ? "" : String(b.id))
+        }
+        className={cn(
+          "rounded-full border px-3.5 py-1.5 text-xs font-semibold transition-colors",
+          filters.brand === String(b.id)
+            ? "border-champagne-400/60 bg-champagne-400/15 text-champagne-300"
+            : "border-white/10 text-zinc-400 hover:border-white/30",
+        )}
+      >
+        {b.name}
+      </button>
+    ))}
+
+    {(meta?.brands.length ?? 0) > 4 && (
+      <button
+        type="button"
+        onClick={() => setShowAllBrands((v) => !v)}
+        className="rounded-full border border-white/10 px-3.5 py-1.5 text-xs font-semibold text-champagne-400 transition-colors hover:border-champagne-400/40"
+      >
+        {showAllBrands
+          ? "− Less"
+          : `+ ${(meta?.brands.length ?? 0) - 4} More`}
+      </button>
+    )}
+  </div>
+</div>
 
           {/* colour swatches */}
-          <div>
-            <p className="text-[11px] font-semibold tracking-[0.2em] text-zinc-500 uppercase">Paint</p>
-            <div className="mt-3 flex flex-wrap gap-2.5">
-              {(meta?.colors ?? []).map((c) => (
-                <button
-                  key={c.color}
-                  type="button"
-                  title={c.color}
-                  aria-label={`Filter by ${c.color}`}
-                  aria-pressed={filters.color === c.color}
-                  onClick={() => set("color")(filters.color === c.color ? "" : c.color)}
-                  className={cn(
-                    "size-8 rounded-full border-2 transition-all",
-                    filters.color === c.color
-                      ? "scale-110 border-champagne-300 shadow-[0_0_18px_-2px_rgba(217,185,129,0.7)]"
-                      : "border-white/15 hover:border-white/40",
-                  )}
-                  style={{ backgroundColor: c.colorHex }}
-                />
-              ))}
-              {filters.color && (
-                <button
-                  type="button"
-                  onClick={() => set("color")("")}
-                  className="inline-flex items-center gap-1 rounded-full border border-white/10 px-3 text-xs text-zinc-400 hover:border-white/30"
-                >
-                  <X className="size-3" /> {filters.color}
-                </button>
-              )}
-            </div>
-          </div>
+<div>
+  <p className="text-[11px] font-semibold tracking-[0.2em] text-zinc-500 uppercase">
+    Paint
+  </p>
+
+  <div className="mt-3 flex flex-wrap items-center gap-2.5">
+    {visibleColors.map((c) => (
+      <button
+        key={c.color}
+        type="button"
+        title={c.color}
+        aria-label={`Filter by ${c.color}`}
+        aria-pressed={filters.color === c.color}
+        onClick={() =>
+          set("color")(filters.color === c.color ? "" : c.color)
+        }
+        className={cn(
+          "size-8 shrink-0 rounded-full border-2 transition-all",
+          filters.color === c.color
+            ? "scale-110 border-champagne-300 shadow-[0_0_18px_-2px_rgba(217,185,129,0.7)]"
+            : "border-white/15 hover:border-white/40",
+        )}
+        style={{ backgroundColor: c.colorHex }}
+      />
+    ))}
+
+    {(meta?.colors.length ?? 0) > 5 && (
+      <button
+        type="button"
+        onClick={() => setShowAllColors((v) => !v)}
+        className="inline-flex h-8 items-center rounded-full border border-white/10 px-3 text-xs font-semibold text-champagne-400 transition-colors hover:border-champagne-400/40"
+      >
+        {showAllColors
+          ? "− Less"
+          : `+ ${(meta?.colors.length ?? 0) - 5} More`}
+      </button>
+    )}
+
+    {filters.color && (
+      <button
+        type="button"
+        onClick={() => set("color")("")}
+        className="inline-flex h-8 items-center gap-1 rounded-full border border-white/10 px-3 text-xs text-zinc-400 transition-colors hover:border-white/30"
+      >
+        <X className="size-3" />
+        {filters.color}
+      </button>
+    )}
+  </div>
+</div>
 
           {/* price + year */}
           <div className="grid grid-cols-2 gap-3">
