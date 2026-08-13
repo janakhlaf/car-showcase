@@ -34,12 +34,14 @@ export function CarsTable({
   brands,
   adminName,
   adminRole,
+  adminPermissions,
 }: {
   cars: CarWithBrand[];
   brands: Brand[];
   adminName: string;
   adminRole: "super_admin" | "manage_admin" | "editor_admin";
-})  {
+  adminPermissions: string[];
+}) {
   const navigate = useNavigate();
   const [cars, setCars] = useState(initialCars);
   const [query, setQuery] = useState("");
@@ -146,12 +148,14 @@ export function CarsTable({
   </>
 )}
 
+  {adminPermissions.includes("cars.create") && (
   <Link
     to="/admin/cars/new"
     className="inline-flex items-center gap-2 rounded-full bg-champagne-400 px-6 py-3 text-sm font-bold tracking-[0.12em] text-obsidian-950 uppercase transition-colors hover:bg-champagne-300"
   >
     <Plus className="size-4" /> Add vehicle
   </Link>
+)}
 
 
 </div>
@@ -235,6 +239,7 @@ export function CarsTable({
                       >
                         <ExternalLink className="size-4" />
                       </Link>
+                      {adminPermissions.includes("cars.edit") && (
                       <Link
                         to={`/admin/cars/${car.id}`}
                         title="Edit vehicle"
@@ -243,15 +248,18 @@ export function CarsTable({
                       >
                         <Pencil className="size-4" />
                       </Link>
-                      <button
-                        type="button"
-                        title="Delete vehicle"
-                        aria-label={`Delete ${car.name}`}
-                        onClick={() => setToDelete(car)}
-                        className="grid size-9 place-items-center rounded-lg text-zinc-500 transition-colors hover:bg-red-500/10 hover:text-red-400"
-                      >
-                        <Trash2 className="size-4" />
-                      </button>
+                    )}
+                      {adminPermissions.includes("cars.delete") && (
+                    <button
+                      type="button"
+                      title="Delete vehicle"
+                      aria-label={`Delete ${car.name}`}
+                      onClick={() => setToDelete(car)}
+                      className="grid size-9 place-items-center rounded-lg text-zinc-500 transition-colors hover:bg-red-500/10 hover:text-red-400"
+                    >
+                      <Trash2 className="size-4" />
+                    </button>
+                  )}
                     </div>
                   </td>
                 </tr>

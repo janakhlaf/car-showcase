@@ -46,14 +46,16 @@ function requirePermission(
     }
 
     /*
-     * Primary Super Admin always has full access.
-     */
-    if (
-        (int)$user['is_primary_admin'] === 1
-    ) {
-        return $user;
-    }
-
+ * Every Super Admin has full access.
+ *
+ * is_primary_admin is only used to protect
+ * the main Super Admin from deletion or role changes.
+ */
+if (
+    $user['role'] === 'super_admin'
+) {
+    return $user;
+}
     /*
      * Check role permission from database.
      */

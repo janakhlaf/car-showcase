@@ -5,11 +5,12 @@ function useAdminData() {
   const nav = useNavigate();
 
   const [data, setData] = useState<{
-    cars: CarWithBrand[];
-    brands: Brand[];
-    name: string;
-    role: "super_admin" | "manage_admin" | "editor_admin";
-  } | null>(null);
+  cars: CarWithBrand[];
+  brands: Brand[];
+  name: string;
+  role: "super_admin" | "manage_admin" | "editor_admin";
+  permissions: string[];
+} | null>(null);
 
   useEffect(() => {
     Promise.all([
@@ -28,6 +29,7 @@ function useAdminData() {
   brands: b.data.data,
   name: m.data.data?.email ?? m.data.email ?? "Admin",
   role: m.data.data?.role ?? "editor_admin",
+  permissions: m.data.data?.permissions ?? [],
 });
 
 })
@@ -54,6 +56,7 @@ export function AdminPage(){
         brands={d.brands}
         adminName={d.name}
         adminRole={d.role}
+        adminPermissions={d.permissions}
       />
     )
     : (

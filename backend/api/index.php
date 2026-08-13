@@ -700,17 +700,18 @@ if (
     $adminId = (int)$payload['sub'];
 
     $statement = $pdo->prepare(
-    'SELECT
-        id,
-        name,
-        email,
-        role,
-        must_change_password AS mustChangePassword,
-        created_at AS createdAt
-     FROM admin_users
-     WHERE id = ?
-     LIMIT 1'
-);
+        'SELECT
+            id,
+            name,
+            email,
+            role,
+            is_primary_admin AS isPrimaryAdmin,
+            must_change_password AS mustChangePassword,
+            created_at AS createdAt
+         FROM admin_users
+         WHERE id = ?
+         LIMIT 1'
+    );
 
     $statement->execute([
         $adminId
@@ -725,14 +726,75 @@ if (
         );
     }
 
+
+    /*
+     * Get permissions for the current admin.
+     *
+     * Primary Super Admin always has every permission.
+     */
+    if (
+        (int)$user['isPrimaryAdmin'] === 1
+    ) {
+        $permissionStatement =
+            $pdo->query(
+                'SELECT name
+                 FROM permissions
+                 ORDER BY id'
+            );
+
+        $permissions =
+            $permissionStatement->fetchAll(
+                PDO::FETCH_COLUMN
+            );
+    }
+
+    else {
+        $permissionStatement =
+            $pdo->prepare(
+                'SELECT p.name
+
+                 FROM roles r
+
+                 JOIN role_permissions rp
+                    ON rp.role_id = r.id
+
+                 JOIN permissions p
+                    ON p.id = rp.permission_id
+
+                 WHERE r.name = ?
+
+                 ORDER BY p.id'
+            );
+
+        $permissionStatement->execute([
+            $user['role']
+        ]);
+
+        $permissions =
+            $permissionStatement->fetchAll(
+                PDO::FETCH_COLUMN
+            );
+    }
+
+
     out([
-    'id' => (int)$user['id'],
-    'name' => $user['name'],
-    'email' => $user['email'],
-    'role' => $user['role'],
-    'mustChangePassword' => (bool)$user['mustChangePassword'],
-    'createdAt' => $user['createdAt']
-]);
+        'id' => (int)$user['id'],
+        'name' => $user['name'],
+        'email' => $user['email'],
+        'role' => $user['role'],
+
+        'isPrimaryAdmin' =>
+            (bool)$user['isPrimaryAdmin'],
+
+        'permissions' =>
+            $permissions,
+
+        'mustChangePassword' =>
+            (bool)$user['mustChangePassword'],
+
+        'createdAt' =>
+            $user['createdAt']
+    ]);
 }
 
 /* =========================================================
@@ -2014,12 +2076,9 @@ if (
 if (
     $method === 'DELETE'
 ) {
-    requireAdminRole(
+    requirePermission(
     $pdo,
-    [
-        'super_admin',
-        'manage_admin'
-    ]
+    'cars.delete'
 );
 
     /*
@@ -2170,12 +2229,9 @@ if (
 if (
     $method === 'PUT'
 ) {
-    requireAdminRole(
+    requirePermission(
     $pdo,
-    [
-        'super_admin',
-        'editor_admin'
-    ]
+    'cars.edit'
 );
 
     $b = body();
@@ -2768,13 +2824,10 @@ if (
     &&
     $method === 'POST'
 ) {
-    requireAdminRole(
-        $pdo,
-        [
-            'super_admin',
-            'manage_admin'
-        ]
-    );
+    requirePermission(
+    $pdo,
+    'cars.create'
+);
 
     $b = body();
 

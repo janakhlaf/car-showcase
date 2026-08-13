@@ -67,28 +67,46 @@ export function AdminRolesPage() {
     loadRoles();
   }, []);
 
-  const groupedPermissions = useMemo(() => {
-    const groups: Record<string, Permission[]> = {};
+  const vehiclePermissions = useMemo(
+  () =>
+    permissions.filter((permission) =>
+      permission.name.startsWith("cars.")
+    ),
+  [permissions]
+);
 
-    for (const permission of permissions) {
-      if (!groups[permission.category]) {
-        groups[permission.category] = [];
-      }
+const groupedPermissions = useMemo(() => {
+  const groups: Record<string, Permission[]> = {};
 
-      groups[permission.category].push(permission);
+  for (const permission of vehiclePermissions) {
+    if (!groups[permission.category]) {
+      groups[permission.category] = [];
     }
 
-    return groups;
-  }, [permissions]);
+    groups[permission.category].push(permission);
+  }
+
+  return groups;
+}, [vehiclePermissions]);
 
   function startEditing(role: Role) {
-    if (role.isSystem) {
-      return;
-    }
-
-    setEditingRoleId(role.id);
-    setDraftPermissionIds(role.permissionIds);
+  if (role.isSystem) {
+    return;
   }
+
+  const vehiclePermissionIds =
+    vehiclePermissions.map(
+      (permission) => permission.id
+    );
+
+  setEditingRoleId(role.id);
+
+  setDraftPermissionIds(
+    role.permissionIds.filter((id) =>
+      vehiclePermissionIds.includes(id)
+    )
+  );
+}
 
   function cancelEditing() {
     setEditingRoleId(null);
@@ -211,7 +229,14 @@ export function AdminRolesPage() {
                     <p className="mt-1 text-sm text-zinc-500">
                       {role.isSystem
                         ? "Full system access. Locked."
-                        : `${role.permissionIds.length} active permissions`}
+                        : `${
+    role.permissionIds.filter((id) =>
+      vehiclePermissions.some(
+        (permission) =>
+          permission.id === id
+      )
+    ).length
+  } active permissions`}
                     </p>
                   </div>
                 </div>
