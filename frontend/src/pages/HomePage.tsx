@@ -80,6 +80,13 @@ const [editorialContent, setEditorialContent] = useState({
   item3Title: "",
   item3Text: "",
 });
+const [privateViewingContent, setPrivateViewingContent] = useState({
+  eyebrow: "",
+  title: "",
+  text: "",
+  buttonText: "",
+  imageUrl: "",
+});
 
   const [stats, setStats] = useState({
     carCount: 0,
