@@ -50,6 +50,36 @@ export function HomePage() {
   const [featured, setFeatured] = useState<CarWithBrand[]>([]);
   const [heroCar, setHeroCar] =
     useState<CarWithBrand | null>(null);
+    const [heroVariants, setHeroVariants] = useState<
+  {
+    id: number;
+    colorName: string;
+    colorHex: string;
+    modelUrl: string;
+    isDefault: boolean;
+  }[]
+>([]);
+    const [featuredText, setFeaturedText] = useState({
+  eyebrow: "The Collection",
+  title: "Featured machines",
+  linkText: "View full collection",
+});
+
+const [editorialContent, setEditorialContent] = useState({
+  eyebrow: "",
+  titleBefore: "",
+  titleAccent: "",
+  titleAfter: "",
+  imageUrl: "",
+  certificationNumber: "",
+  certificationLabel: "",
+  item1Title: "",
+  item1Text: "",
+  item2Title: "",
+  item2Text: "",
+  item3Title: "",
+  item3Text: "",
+});
 
   const [stats, setStats] = useState({
     carCount: 0,
@@ -66,12 +96,7 @@ export function HomePage() {
   statsResponse,
   settingsResponse,
 ] = await Promise.all([
-  axios.get("/api/cars", {
-    params: {
-      featured: 1,
-      limit: 3,
-    },
-  }),
+  axios.get("/api/cars?limit=200"),
 
   axios.get("/api/stats"),
 
@@ -91,22 +116,104 @@ export function HomePage() {
           const heroCarId =
   settingsResponse.data?.data?.heroCarId ??
   null;
+  const settings =
+  settingsResponse.data?.data ?? {};
+  setEditorialContent({
+  eyebrow: settings.editorialEyebrow ?? "",
+  titleBefore: settings.editorialTitleBefore ?? "",
+  titleAccent: settings.editorialTitleAccent ?? "",
+  titleAfter: settings.editorialTitleAfter ?? "",
+  imageUrl: settings.editorialImageUrl ?? "",
+  certificationNumber:
+    settings.editorialCertificationNumber ?? "",
+  certificationLabel:
+    settings.editorialCertificationLabel ?? "",
+  item1Title:
+    settings.editorialItem1Title ?? "",
+  item1Text:
+    settings.editorialItem1Text ?? "",
+  item2Title:
+    settings.editorialItem2Title ?? "",
+  item2Text:
+    settings.editorialItem2Text ?? "",
+  item3Title:
+    settings.editorialItem3Title ?? "",
+  item3Text:
+    settings.editorialItem3Text ?? "",
+});
+
+setFeaturedText({
+  eyebrow:
+    settings.featuredEyebrow ??
+    "The Collection",
+
+  title:
+    settings.featuredTitle ??
+    "Featured machines",
+
+  linkText:
+    settings.featuredLinkText ??
+    "View full collection",
+});
+  
+  const featuredCarIds = [
+  settingsResponse.data?.data?.featuredCar1Id,
+  settingsResponse.data?.data?.featuredCar2Id,
+  settingsResponse.data?.data?.featuredCar3Id,
+].filter(
+  (id): id is number =>
+    id !== null &&
+    id !== undefined
+);
 
         if (Array.isArray(cars)) {
-          setFeatured(cars);
-        }
+  const selectedFeatured =
+    featuredCarIds
+      .map((id) =>
+        cars.find(
+          (car: CarWithBrand) =>
+            car.id === id
+        )
+      )
+      .filter(
+        (
+          car
+        ): car is CarWithBrand =>
+          Boolean(car)
+      );
+
+  setFeatured(selectedFeatured);
+}
 
         if (heroCarId) {
-  const heroResponse =
-    await axios.get(
-      `/api/cars/${heroCarId}`
-    );
+  const [
+    heroResponse,
+    variantsResponse,
+  ] = await Promise.all([
+    axios.get(`/api/cars/${heroCarId}`),
+
+    axios.get("/api/car-variants", {
+      params: {
+        car_id: heroCarId,
+      },
+    }),
+  ]);
 
   const selectedHero =
     heroResponse.data?.data ??
     null;
 
+  const variants =
+    variantsResponse.data?.data ??
+    [];
+
   setHeroCar(selectedHero);
+
+  setHeroVariants(
+    Array.isArray(variants)
+      ? variants
+      : []
+  );
 }
 
         setStats({
@@ -129,19 +236,23 @@ export function HomePage() {
   fallbackHeroCar;
 
   const paints =
-    featured.length > 0
-      ? featured.map((car) => ({
-          name: car.name,
-          color: car.color,
-          hex: car.colorHex,
-        }))
-      : [
-          {
-            name: fallbackHeroCar.name,
-            color: fallbackHeroCar.color,
-            hex: fallbackHeroCar.colorHex,
-          },
-        ];
+  heroVariants.length > 0
+    ? heroVariants.map((variant) => ({
+        name: displayedHeroCar.name,
+        color: variant.colorName,
+        hex: variant.colorHex,
+        modelUrl: variant.modelUrl,
+        isDefault: variant.isDefault,
+      }))
+    : [
+        {
+          name: displayedHeroCar.name,
+          color: displayedHeroCar.color,
+          hex: displayedHeroCar.colorHex,
+          modelUrl: displayedHeroCar.modelPath ?? "",
+          isDefault: true,
+        },
+      ];
 
   return (
     <>
@@ -162,22 +273,29 @@ export function HomePage() {
           <div className="flex flex-col gap-6 md:flex-row md:items-end md:justify-between">
             <div>
               <p className="font-display text-xs font-semibold tracking-[0.32em] text-champagne-400 uppercase">
-                The Collection
-              </p>
+  {featuredText.eyebrow}
+</p>
 
-              <h2 className="mt-3 font-display text-4xl font-bold tracking-tight md:text-5xl">
-                Featured{" "}
-                <span className="font-accent text-gradient-gold font-normal italic">
-                  machines
-                </span>
-              </h2>
+<h2 className="mt-3 font-display text-4xl font-bold tracking-tight md:text-5xl">
+  {featuredText.title
+    .split(" ")
+    .slice(0, -1)
+    .join(" ")}{" "}
+
+  <span className="font-accent text-gradient-gold font-normal italic">
+    {featuredText.title
+      .split(" ")
+      .slice(-1)}
+  </span>
+</h2>
+
             </div>
 
             <Link
               to="/cars"
               className="group inline-flex items-center gap-2 text-sm font-semibold tracking-[0.16em] text-zinc-400 uppercase transition-colors hover:text-champagne-300"
             >
-              View full collection
+              {featuredText.linkText}
               <ArrowRight className="size-4 transition-transform duration-300 group-hover:translate-x-1" />
             </Link>
           </div>
@@ -190,9 +308,12 @@ export function HomePage() {
         </div>
       </section>
 
-      <Experience3D paints={paints} />
+      <Experience3D
+  paints={paints}
+  car={displayedHeroCar}
+/>
 
-      <Editorial />
+      <Editorial content={editorialContent} />
 
       <section className="relative mx-auto max-w-7xl px-5 pb-8 lg:px-8">
         <Reveal>

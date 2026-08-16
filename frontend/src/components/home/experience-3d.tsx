@@ -1,16 +1,18 @@
 
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { ModelViewer } from "@/components/three/model-viewer";
 import { Expand, MousePointer2, ZoomIn } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Reveal } from "@/components/reveal";
-
+import type { CarWithBrand } from "@/db/schema";
 // WebGL must stay client-only — load the stage lazily in the browser.
 export interface PaintOption {
   name: string;
   color: string;
   hex: string;
+  modelUrl?: string | null;
+  isDefault?: boolean;
 }
 
 const capabilities = [
@@ -19,9 +21,33 @@ const capabilities = [
   { icon: Expand, label: "Immersive fullscreen" },
 ];
 
-export function Experience3D({ paints }: { paints: PaintOption[] }) {
+export function Experience3D({
+  paints,
+  car,
+}: {
+  paints: PaintOption[];
+  car: CarWithBrand;
+}) {
   const [active, setActive] = useState(0);
-  const paint = paints[active] ?? { name: "GT", color: "GT Silver", hex: "#b8bcc2" };
+
+useEffect(() => {
+  const defaultIndex = paints.findIndex(
+    (paint) => paint.isDefault
+  );
+
+  setActive(
+    defaultIndex >= 0
+      ? defaultIndex
+      : 0
+  );
+}, [paints]);
+  const paint = paints[active] ?? {
+  name: car.name,
+  color: car.color,
+  hex: car.colorHex,
+  modelUrl: car.modelPath,
+  isDefault: true,
+};
 
   return (
     <section id="experience" className="relative py-24" aria-labelledby="experience-title">
@@ -89,7 +115,13 @@ export function Experience3D({ paints }: { paints: PaintOption[] }) {
         </Reveal>
 
         <Reveal delay={0.12}>
-          <ModelViewer color={paint.hex} colorName={paint.color} className="aspect-[4/3] md:aspect-[16/11]" />
+          <ModelViewer
+  key={paint.modelUrl ?? car.modelPath ?? paint.color}
+  modelPath={paint.modelUrl ?? car.modelPath}
+  color={paint.hex}
+  colorName={paint.color}
+  className="aspect-[4/3] md:aspect-[16/11]"
+/>
         </Reveal>
       </div>
     </section>
