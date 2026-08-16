@@ -48,6 +48,9 @@ const fallbackHeroCar: CarWithBrand = {
 
 export function HomePage() {
   const [featured, setFeatured] = useState<CarWithBrand[]>([]);
+  const [heroCar, setHeroCar] =
+    useState<CarWithBrand | null>(null);
+
   const [stats, setStats] = useState({
     carCount: 0,
     brandCount: 0,
@@ -58,15 +61,22 @@ export function HomePage() {
   useEffect(() => {
     async function loadHomeData() {
       try {
-        const [carsResponse, statsResponse] = await Promise.all([
-            axios.get("/api/cars", {
-                params: {
-                featured: 1,
-                limit: 3,
-                },
-            }),
-            axios.get("/api/stats"),
-            ]);
+        const [
+  carsResponse,
+  statsResponse,
+  settingsResponse,
+] = await Promise.all([
+  axios.get("/api/cars", {
+    params: {
+      featured: 1,
+      limit: 3,
+    },
+  }),
+
+  axios.get("/api/stats"),
+
+  axios.get("/api/site-settings"),
+]);
         const cars =
           carsResponse.data?.data ??
           carsResponse.data?.cars ??
@@ -78,9 +88,26 @@ export function HomePage() {
           statsResponse.data ??
           {};
 
+          const heroCarId =
+  settingsResponse.data?.data?.heroCarId ??
+  null;
+
         if (Array.isArray(cars)) {
           setFeatured(cars);
         }
+
+        if (heroCarId) {
+  const heroResponse =
+    await axios.get(
+      `/api/cars/${heroCarId}`
+    );
+
+  const selectedHero =
+    heroResponse.data?.data ??
+    null;
+
+  setHeroCar(selectedHero);
+}
 
         setStats({
           carCount: Number(statsData.carCount ?? 0),
@@ -96,7 +123,10 @@ export function HomePage() {
     loadHomeData();
   }, []);
 
-  const heroCar = featured[0] ?? fallbackHeroCar;
+  const displayedHeroCar =
+  heroCar ??
+  featured[0] ??
+  fallbackHeroCar;
 
   const paints =
     featured.length > 0
@@ -116,7 +146,7 @@ export function HomePage() {
   return (
     <>
       {/* يبقى موجودًا دائمًا حتى لو قاعدة البيانات لم تعمل */}
-      <Hero3D car={heroCar} />
+      <Hero3D car={displayedHeroCar} />
 
       <section
         className="relative z-10 mx-auto max-w-7xl scroll-mt-24 px-5 pb-4 lg:px-8"

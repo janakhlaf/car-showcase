@@ -1,7 +1,10 @@
 import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import axios from "axios";
-import { ArrowLeft, MonitorCog, CarFront } from "lucide-react";
+import { ArrowLeft, MonitorCog, CarFront, Loader2 } from "lucide-react";
+import { toast } from "sonner";
+
+import { adminApi } from "@/lib/admin-auth";
 
 type CarOption = {
   id: number;
@@ -15,21 +18,151 @@ export function WebsiteContentPage() {
 
   const [cars, setCars] = useState<CarOption[]>([]);
   const [heroCarId, setHeroCarId] = useState("");
+  const [initialHeroCarId, setInitialHeroCarId] = useState("");
+
   const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState(false);
 
   useEffect(() => {
-    axios
-      .get("/api/cars?limit=200")
-      .then((response) => {
-        setCars(response.data.data ?? []);
-      })
-      .catch((error) => {
-        console.error("Could not load cars:", error);
-      })
-      .finally(() => {
+    async function loadPage() {
+      try {
+        /*
+         * 1. Check current admin + permissions
+         */
+        const meResponse =
+          await adminApi.get("/api/admin/me");
+
+        const permissions: string[] =
+          meResponse.data.data?.permissions ?? [];
+
+        if (
+          !permissions.includes(
+            "site_content.edit"
+          )
+        ) {
+          toast.error(
+            "You do not have permission to edit website content"
+          );
+
+          navigate("/admin", {
+            replace: true,
+          });
+
+          return;
+        }
+
+        /*
+         * 2. Load available cars
+         * 3. Load current site settings
+         */
+        const [
+          carsResponse,
+          settingsResponse,
+        ] = await Promise.all([
+          axios.get(
+            "/api/cars?limit=200"
+          ),
+
+          axios.get(
+            "/api/site-settings"
+          ),
+        ]);
+
+        setCars(
+          carsResponse.data.data ?? []
+        );
+
+        const currentHeroCarId =
+          settingsResponse.data.data
+            ?.heroCarId;
+
+        const value =
+          currentHeroCarId !== null &&
+          currentHeroCarId !== undefined
+            ? String(currentHeroCarId)
+            : "";
+
+        setHeroCarId(value);
+        setInitialHeroCarId(value);
+
+      } catch (error) {
+        console.error(
+          "Could not load website content:",
+          error
+        );
+
+        toast.error(
+          "Could not load website content"
+        );
+
+        navigate("/admin", {
+          replace: true,
+        });
+
+      } finally {
         setLoading(false);
-      });
-  }, []);
+      }
+    }
+
+    loadPage();
+  }, [navigate]);
+
+
+  async function saveHeroVehicle() {
+    if (!heroCarId) {
+      toast.error(
+        "Please select a hero vehicle"
+      );
+
+      return;
+    }
+
+    setSaving(true);
+
+    try {
+      await adminApi.put(
+        "/api/site-settings/hero-car",
+        {
+          heroCarId:
+            Number(heroCarId),
+        }
+      );
+
+      setInitialHeroCarId(
+        heroCarId
+      );
+
+      toast.success(
+        "Hero vehicle updated"
+      );
+
+    } catch (error) {
+      const message =
+        axios.isAxiosError(error)
+          ? error.response?.data?.error ??
+            "Could not update hero vehicle"
+          : "Could not update hero vehicle";
+
+      toast.error(message);
+
+    } finally {
+      setSaving(false);
+    }
+  }
+
+
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-obsidian-950 pt-40 text-center text-zinc-500">
+        Loading website content...
+      </div>
+    );
+  }
+
+
+  const hasChanges =
+    heroCarId !== initialHeroCarId;
+
 
   return (
     <div className="min-h-screen bg-obsidian-950 px-5 pb-20 pt-28 text-white">
@@ -38,12 +171,15 @@ export function WebsiteContentPage() {
         {/* Back */}
         <button
           type="button"
-          onClick={() => navigate("/admin")}
+          onClick={() =>
+            navigate("/admin")
+          }
           className="mb-8 inline-flex items-center gap-2 text-sm text-zinc-400 transition-colors hover:text-white"
         >
           <ArrowLeft className="size-4" />
           Back to Admin
         </button>
+
 
         {/* Header */}
         <div className="border-b border-white/10 pb-8">
@@ -63,6 +199,7 @@ export function WebsiteContentPage() {
             Manage the content and vehicles displayed across the public website.
           </p>
         </div>
+
 
         {/* Home Page */}
         <section className="mt-10">
@@ -88,6 +225,7 @@ export function WebsiteContentPage() {
               </div>
             </div>
 
+
             <div className="mt-7">
               <label
                 htmlFor="hero-car"
@@ -99,39 +237,62 @@ export function WebsiteContentPage() {
               <select
                 id="hero-car"
                 value={heroCarId}
-                onChange={(e) => setHeroCarId(e.target.value)}
-                disabled={loading}
+                onChange={(e) =>
+                  setHeroCarId(
+                    e.target.value
+                  )
+                }
+                disabled={saving}
                 className="w-full rounded-xl border border-white/10 bg-obsidian-900 px-4 py-3 text-sm text-white outline-none transition-colors focus:border-champagne-400/50 disabled:opacity-50"
               >
                 <option value="">
-                  {loading ? "Loading vehicles..." : "Select a vehicle"}
+                  Select a vehicle
                 </option>
 
                 {cars.map((car) => (
-                  <option key={car.id} value={car.id}>
-                    {car.year} {car.brandName} {car.name}
+                  <option
+                    key={car.id}
+                    value={car.id}
+                  >
+                    {car.year}{" "}
+                    {car.brandName}{" "}
+                    {car.name}
                   </option>
                 ))}
               </select>
 
               <p className="mt-3 text-xs leading-5 text-zinc-600">
-                The selected vehicle will later be loaded from the CMS as the
-                homepage hero vehicle.
+                The selected vehicle is stored in the CMS and will be used as the homepage hero vehicle.
               </p>
             </div>
+
 
             <div className="mt-7 flex justify-end">
               <button
                 type="button"
-                disabled
-                className="rounded-full bg-champagne-400 px-6 py-2.5 text-xs font-bold tracking-[0.12em] text-black uppercase opacity-40"
+                onClick={
+                  saveHeroVehicle
+                }
+                disabled={
+                  saving ||
+                  !heroCarId ||
+                  !hasChanges
+                }
+                className="inline-flex items-center gap-2 rounded-full bg-champagne-400 px-6 py-2.5 text-xs font-bold tracking-[0.12em] text-black uppercase transition-opacity disabled:cursor-not-allowed disabled:opacity-40"
               >
-                Save Changes
+                {saving && (
+                  <Loader2 className="size-4 animate-spin" />
+                )}
+
+                {saving
+                  ? "Saving..."
+                  : "Save Changes"}
               </button>
             </div>
 
           </div>
         </section>
+
       </div>
     </div>
   );

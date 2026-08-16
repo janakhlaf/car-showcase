@@ -48,22 +48,6 @@ import {
 import { cn } from "@/lib/utils";
 
 
-/* =========================================================
-   HERO MODEL
-========================================================= */
-
-/**
- * Real BYD Atto 2 Beige model
- *
- * Physical file:
- * C:\xampp\htdocs\car-storage\models\car beige1.glb
- *
- * Browser URL:
- * http://localhost/car-storage/models/car%20beige1.glb
- */
-
-const HERO_MODEL_URL =
-  "http://localhost/car-storage/models/car%20beige1.glb";
 
 
 /* =========================================================
@@ -1081,7 +1065,7 @@ function StudioEnvironment({
 ========================================================= */
 
 export default function HeroCanvas({
-  car: _car,
+  car,
 
   progress,
 
@@ -1220,13 +1204,12 @@ export default function HeroCanvas({
               null
             }
           >
-            <GltfModel
-              url={
-                HERO_MODEL_URL
-              }
-
-              viewMode="exterior"
-            />
+            {car.modelPath && (
+  <GltfModel
+    url={car.modelPath}
+    viewMode="exterior"
+  />
+)}
           </ModelErrorBoundary>
 
 

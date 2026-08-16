@@ -146,23 +146,27 @@ export function CarsTable({
       <ShieldCheck className="size-4" />
       Roles & Permissions
     </Link>
-
-    <Link
-  to="/admin/content"
-  className="inline-flex items-center gap-2 rounded-full border border-white/10 px-5 py-3 text-xs font-semibold tracking-[0.14em] text-zinc-300 uppercase transition-colors hover:border-champagne-400/40 hover:text-champagne-300"
->
-  <LayoutDashboard className="size-4" />
-  Website Content
-</Link>
   </>
 )}
 
-  {adminPermissions.includes("cars.create") && (
+{adminPermissions.includes("site_content.edit") && (
+  <Link
+    to="/admin/content"
+    className="inline-flex items-center gap-2 rounded-full border border-white/10 px-5 py-3 text-xs font-semibold tracking-[0.14em] text-zinc-300 uppercase transition-colors hover:border-champagne-400/40 hover:text-champagne-300"
+  >
+    <LayoutDashboard className="size-4" />
+    Website Content
+  </Link>
+)}
+
+
+{adminPermissions.includes("cars.create") && (
   <Link
     to="/admin/cars/new"
     className="inline-flex items-center gap-2 rounded-full bg-champagne-400 px-6 py-3 text-sm font-bold tracking-[0.12em] text-obsidian-950 uppercase transition-colors hover:bg-champagne-300"
   >
-    <Plus className="size-4" /> Add vehicle
+    <Plus className="size-4" />
+    Add vehicle
   </Link>
 )}
 

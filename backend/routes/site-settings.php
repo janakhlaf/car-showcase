@@ -79,7 +79,10 @@ if (
      * should be allowed to change CMS content.
      */
 
-    admin();
+    requirePermission(
+        $pdo,
+        'site_content.edit'
+    );
 
     $b = body();
 

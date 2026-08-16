@@ -67,44 +67,32 @@ export function AdminRolesPage() {
     loadRoles();
   }, []);
 
-  const vehiclePermissions = useMemo(
-  () =>
-    permissions.filter((permission) =>
-      permission.name.startsWith("cars.")
-    ),
-  [permissions]
-);
+  const groupedPermissions = useMemo(() => {
+    const groups: Record<string, Permission[]> = {};
 
-const groupedPermissions = useMemo(() => {
-  const groups: Record<string, Permission[]> = {};
+    for (const permission of permissions) {
+      const category =
+        permission.category || "Other";
 
-  for (const permission of vehiclePermissions) {
-    if (!groups[permission.category]) {
-      groups[permission.category] = [];
+      if (!groups[category]) {
+        groups[category] = [];
+      }
+
+      groups[category].push(permission);
     }
 
-    groups[permission.category].push(permission);
-  }
+    return groups;
+  }, [permissions]);
 
-  return groups;
-}, [vehiclePermissions]);
-
-  function startEditing(role: Role) {
+    function startEditing(role: Role) {
   if (role.isSystem) {
     return;
   }
 
-  const vehiclePermissionIds =
-    vehiclePermissions.map(
-      (permission) => permission.id
-    );
-
   setEditingRoleId(role.id);
 
   setDraftPermissionIds(
-    role.permissionIds.filter((id) =>
-      vehiclePermissionIds.includes(id)
-    )
+    [...role.permissionIds]
   );
 }
 
@@ -229,14 +217,7 @@ const groupedPermissions = useMemo(() => {
                     <p className="mt-1 text-sm text-zinc-500">
                       {role.isSystem
                         ? "Full system access. Locked."
-                        : `${
-    role.permissionIds.filter((id) =>
-      vehiclePermissions.some(
-        (permission) =>
-          permission.id === id
-      )
-    ).length
-  } active permissions`}
+                        : `${role.permissionIds.length} active permissions`}
                     </p>
                   </div>
                 </div>
