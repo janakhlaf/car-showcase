@@ -21,6 +21,12 @@ export function Navbar() {
   const [scrolled, setScrolled] = useState(false);
   const [open, setOpen] = useState(false);
   const [profileOpen, setProfileOpen] = useState(false);
+  const [userAccount, setUserAccount] = useState<{
+  id: number;
+  name: string;
+  email: string;
+  phone: string;
+} | null>(null);
   const [adminAccount, setAdminAccount] = useState<{
   name: string;
   email: string;
@@ -34,6 +40,31 @@ export function Navbar() {
   }, []);
 
   useEffect(() => setOpen(false), [pathname]);
+  useEffect(() => {
+  if (isAdmin) {
+    setUserAccount(null);
+    return;
+  }
+
+  const storedUser =
+    sessionStorage.getItem("user");
+
+  const accessToken =
+    sessionStorage.getItem("userAccessToken");
+
+  if (!storedUser || !accessToken) {
+    setUserAccount(null);
+    return;
+  }
+
+  try {
+    const parsedUser = JSON.parse(storedUser);
+
+    setUserAccount(parsedUser);
+  } catch {
+    setUserAccount(null);
+  }
+}, [pathname, isAdmin]);
   useEffect(() => {
   if (!isAdmin || isAdminLogin) {
     setAdminAccount(null);
@@ -229,15 +260,132 @@ if (isAdmin && !isAdminLogin) {
           })}
         </nav>
 
-        <div className="hidden md:block">
-          <Link
-            to="/cars"
-            className="group relative overflow-hidden rounded-full border border-champagne-400/50 px-5 py-2.5 text-[13px] font-semibold tracking-[0.14em] text-champagne-300 uppercase transition-colors hover:text-obsidian-950"
-          >
-            <span className="absolute inset-0 origin-bottom scale-y-0 bg-champagne-400 transition-transform duration-300 ease-out group-hover:scale-y-100" />
-            <span className="relative">Book a viewing</span>
-          </Link>
+        <div className="hidden items-center gap-2 md:flex">
+  {!userAccount ? (
+    <>
+      <Link
+        to="/login"
+        className="rounded-full px-4 py-2.5 text-[12px] font-semibold tracking-[0.16em] text-zinc-300 uppercase transition-colors hover:text-champagne-300"
+      >
+        Sign In
+      </Link>
+
+      <Link
+        to="/register"
+        className="rounded-full border border-champagne-400/40 px-5 py-2.5 text-[12px] font-semibold tracking-[0.16em] text-champagne-300 uppercase transition-all hover:bg-champagne-400 hover:text-obsidian-950"
+      >
+        Create Account
+      </Link>
+    </>
+  ) : (
+    <div className="relative">
+      <button
+        type="button"
+        onClick={() => setProfileOpen((v) => !v)}
+        className="flex items-center gap-2.5 rounded-full border border-white/10 bg-white/[0.025] px-4 py-2 text-zinc-200 transition-all hover:border-champagne-400/40 hover:bg-champagne-400/[0.06]"
+      >
+        <span className="grid size-7 place-items-center rounded-full bg-champagne-400/10 text-champagne-300">
+          <UserCircle className="size-4.5" />
+        </span>
+
+        <span className="max-w-[110px] truncate text-[12px] font-semibold tracking-[0.1em] uppercase">
+          {userAccount.name}
+        </span>
+
+        <span
+          className={cn(
+            "text-[10px] text-zinc-500 transition-transform duration-200",
+            profileOpen && "rotate-180"
+          )}
+        >
+          ▾
+        </span>
+      </button>
+
+      {profileOpen && (
+        <div className="absolute right-0 top-14 z-50 w-60 overflow-hidden rounded-2xl border border-white/10 bg-obsidian-900/95 shadow-2xl backdrop-blur-xl">
+          <div className="border-b border-white/[0.07] px-4 py-4">
+            <p className="truncate text-sm font-semibold text-zinc-100">
+              {userAccount.name}
+            </p>
+
+            <p className="mt-1 truncate text-xs text-zinc-500">
+              {userAccount.email}
+            </p>
+          </div>
+
+          <div className="p-2">
+            <Link
+              to="/profile"
+              onClick={() => setProfileOpen(false)}
+              className="flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm text-zinc-300 transition-colors hover:bg-white/5 hover:text-champagne-300"
+            >
+              <UserCircle className="size-4" />
+              My Profile
+            </Link>
+
+            <Link
+              to="/my-test-drives"
+              onClick={() => setProfileOpen(false)}
+              className="flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm text-zinc-300 transition-colors hover:bg-white/5 hover:text-champagne-300"
+            >
+              <Gauge className="size-4" />
+              My Test Drives
+            </Link>
+
+            <div className="my-1 border-t border-white/[0.07]" />
+
+            <button
+              type="button"
+              onClick={async () => {
+  setProfileOpen(false);
+
+  const refreshToken =
+    sessionStorage.getItem("userRefreshToken");
+
+  try {
+    if (refreshToken) {
+      await axios.post(
+        "/api/auth/logout",
+        {
+          refreshToken,
+        }
+      );
+    }
+  } catch (error) {
+    console.log(
+      "User logout revoke failed:",
+      error
+    );
+  }
+
+  sessionStorage.removeItem(
+    "userAccessToken"
+  );
+
+  sessionStorage.removeItem(
+    "userRefreshToken"
+  );
+
+  sessionStorage.removeItem(
+    "user"
+  );
+
+  setUserAccount(null);
+
+  window.location.href = "/";
+}}
+              className="flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-left text-sm text-zinc-400 transition-colors hover:bg-red-500/10 hover:text-red-400"
+            >
+              <LogOut className="size-4" />
+              Sign Out
+            </button>
+          </div>
         </div>
+      )}
+    </div>
+  )}
+</div>
 
         <button
           className="grid size-10 place-items-center rounded-lg border border-white/10 text-zinc-200 md:hidden"

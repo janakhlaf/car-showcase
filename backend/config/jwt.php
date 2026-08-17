@@ -400,3 +400,221 @@ function createRefreshToken(): array
         'expiresAt' => $expiresAt
     ];
 }
+
+/*
+|--------------------------------------------------------------------------
+| CREATE USER ACCESS TOKEN
+|--------------------------------------------------------------------------
+*/
+
+function createUserAccessToken(array $user): string
+{
+    $header = [
+        'alg' => 'HS256',
+        'typ' => 'JWT'
+    ];
+
+    $now = time();
+
+    $payload = [
+        'sub' => (int)$user['id'],
+        'email' => $user['email'],
+        'role' => 'user',
+        'iat' => $now,
+        'exp' => $now + JWT_ACCESS_TTL
+    ];
+
+    $encodedHeader = base64UrlEncode(
+        json_encode(
+            $header,
+            JSON_UNESCAPED_SLASHES | JSON_THROW_ON_ERROR
+        )
+    );
+
+    $encodedPayload = base64UrlEncode(
+        json_encode(
+            $payload,
+            JSON_UNESCAPED_SLASHES | JSON_THROW_ON_ERROR
+        )
+    );
+
+    $data =
+        $encodedHeader
+        . '.'
+        . $encodedPayload;
+
+    $signature = hash_hmac(
+        'sha256',
+        $data,
+        JWT_SECRET,
+        true
+    );
+
+    return
+        $encodedHeader
+        . '.'
+        . $encodedPayload
+        . '.'
+        . base64UrlEncode(
+            $signature
+        );
+}
+
+/*
+|--------------------------------------------------------------------------
+| VERIFY USER ACCESS TOKEN
+|--------------------------------------------------------------------------
+*/
+
+function verifyUserAccessToken(string $token): array
+{
+    $parts = explode('.', $token);
+
+    if (count($parts) !== 3) {
+        throw new RuntimeException(
+            'Invalid token'
+        );
+    }
+
+    [
+        $encodedHeader,
+        $encodedPayload,
+        $encodedSignature
+    ] = $parts;
+
+    /*
+    |--------------------------------------------------------------------------
+    | DECODE HEADER + PAYLOAD
+    |--------------------------------------------------------------------------
+    */
+
+    $headerJson =
+        base64UrlDecode(
+            $encodedHeader
+        );
+
+    $payloadJson =
+        base64UrlDecode(
+            $encodedPayload
+        );
+
+    if (
+        $headerJson === false
+        ||
+        $payloadJson === false
+    ) {
+        throw new RuntimeException(
+            'Invalid token encoding'
+        );
+    }
+
+    $header = json_decode(
+        $headerJson,
+        true,
+        512,
+        JSON_THROW_ON_ERROR
+    );
+
+    $payload = json_decode(
+        $payloadJson,
+        true,
+        512,
+        JSON_THROW_ON_ERROR
+    );
+
+    /*
+    |--------------------------------------------------------------------------
+    | VERIFY ALGORITHM
+    |--------------------------------------------------------------------------
+    */
+
+    if (
+        !isset($header['alg'])
+        ||
+        $header['alg'] !== 'HS256'
+    ) {
+        throw new RuntimeException(
+            'Invalid token algorithm'
+        );
+    }
+
+    /*
+    |--------------------------------------------------------------------------
+    | VERIFY SIGNATURE
+    |--------------------------------------------------------------------------
+    */
+
+    $data =
+        $encodedHeader
+        . '.'
+        . $encodedPayload;
+
+    $expectedSignature = hash_hmac(
+        'sha256',
+        $data,
+        JWT_SECRET,
+        true
+    );
+
+    $receivedSignature =
+        base64UrlDecode(
+            $encodedSignature
+        );
+
+    if ($receivedSignature === false) {
+        throw new RuntimeException(
+            'Invalid token signature encoding'
+        );
+    }
+
+    if (
+        !hash_equals(
+            $expectedSignature,
+            $receivedSignature
+        )
+    ) {
+        throw new RuntimeException(
+            'Invalid token signature'
+        );
+    }
+
+    /*
+    |--------------------------------------------------------------------------
+    | VERIFY EXPIRATION
+    |--------------------------------------------------------------------------
+    */
+
+    if (
+        !isset($payload['exp'])
+        ||
+        !is_numeric($payload['exp'])
+    ) {
+        throw new RuntimeException(
+            'Invalid token expiration'
+        );
+    }
+
+    if ((int)$payload['exp'] < time()) {
+        throw new RuntimeException(
+            'Token expired'
+        );
+    }
+
+    /*
+    |--------------------------------------------------------------------------
+    | VERIFY USER ROLE
+    |--------------------------------------------------------------------------
+    */
+
+    if (
+        !isset($payload['role'])
+        ||
+        $payload['role'] !== 'user'
+    ) {
+        throw new RuntimeException(
+            'Unauthorized role'
+        );
+    }
+
+    return $payload;
+}

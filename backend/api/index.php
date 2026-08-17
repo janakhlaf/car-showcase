@@ -396,6 +396,7 @@ $pdo = db();
 
 require_once __DIR__ . '/../routes/admin-roles.php';
 require_once __DIR__ . '/../routes/site-settings.php';
+require_once __DIR__ . '/../routes/auth.php';
 
 
 /* =========================================================

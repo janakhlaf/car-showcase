@@ -20,8 +20,9 @@ import { AdminUsersPage } from "@/components/admin/admin-users-page";
 import { AdminProfilePage } from "@/components/admin/admin-profile-page";
 import { AdminRolesPage } from "@/components/admin/admin-roles-page";
 import { WebsiteContentPage } from "@/components/admin/website-content-page";
-
-
+import { RegisterPage } from "@/pages/RegisterPage";
+import { LoginPage } from "@/pages/LoginPage";
+import { ProfilePage } from "@/pages/ProfilePage";
 export default function App() {
   return (
     <BrowserRouter>
@@ -46,6 +47,19 @@ export default function App() {
               path="/cars/:id"
               element={<CarDetailPage />}
             />
+
+            <Route
+              path="/register"
+              element={<RegisterPage />}
+            />
+            <Route
+                path="/login"
+                element={<LoginPage />}
+              />
+              <Route
+                path="/profile"
+                element={<ProfilePage />}
+              />
 
             <Route
               path="/admin/login"
