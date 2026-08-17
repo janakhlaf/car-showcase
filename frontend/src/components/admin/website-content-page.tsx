@@ -46,28 +46,19 @@ const [initialFeaturedText, setInitialFeaturedText] =
 const [savingFeaturedText, setSavingFeaturedText] =
   useState(false);
   const [editorialContent, setEditorialContent] = useState({
-  eyebrow: "The Veloce Standard",
-  titleBefore: "Obsessive curation,",
-  titleAccent: "uncompromising",
-  titleAfter: "care",
-
-  imageUrl:
-    "https://images.pexels.com/photos/12959473/pexels-photo-12959473.jpeg?auto=compress&cs=tinysrgb&fit=crop&h=627&w=1200",
-
-  certificationNumber: "120+",
-  certificationLabel: "Point certification",
-
-  item1Title: "Concierge Authentication",
-  item1Text:
-    "Every vehicle is inspected, verified and certified by our master technicians before entering the collection.",
-
-  item2Title: "Complete Provenance",
-  item2Text:
-    "Full documented history, service records and originality reports accompany each machine.",
-
-  item3Title: "Global Delivery",
-  item3Text:
-    "Enclosed transport, customs handling and white-glove handover anywhere in the world.",
+  eyebrow: "",
+  titleBefore: "",
+  titleAccent: "",
+  titleAfter: "",
+  imageUrl: "",
+  certificationNumber: "",
+  certificationLabel: "",
+  item1Title: "",
+  item1Text: "",
+  item2Title: "",
+  item2Text: "",
+  item3Title: "",
+  item3Text: "",
 });
 
 const [initialEditorialContent, setInitialEditorialContent] =
@@ -198,56 +189,43 @@ setInitialFeaturedText({
 });
 const editorialValue = {
   eyebrow:
-    settingsResponse.data.data?.editorialEyebrow ??
-    "The Veloce Standard",
+    settingsResponse.data.data?.editorialEyebrow ?? "",
 
   titleBefore:
-    settingsResponse.data.data?.editorialTitleBefore ??
-    "Obsessive curation,",
+    settingsResponse.data.data?.editorialTitleBefore ?? "",
 
   titleAccent:
-    settingsResponse.data.data?.editorialTitleAccent ??
-    "uncompromising",
+    settingsResponse.data.data?.editorialTitleAccent ?? "",
 
   titleAfter:
-    settingsResponse.data.data?.editorialTitleAfter ??
-    "care",
+    settingsResponse.data.data?.editorialTitleAfter ?? "",
 
   imageUrl:
-    settingsResponse.data.data?.editorialImageUrl ??
-    "https://images.pexels.com/photos/12959473/pexels-photo-12959473.jpeg?auto=compress&cs=tinysrgb&fit=crop&h=627&w=1200",
+    settingsResponse.data.data?.editorialImageUrl ?? "",
 
   certificationNumber:
-    settingsResponse.data.data?.editorialCertificationNumber ??
-    "120+",
+    settingsResponse.data.data?.editorialCertificationNumber ?? "",
 
   certificationLabel:
-    settingsResponse.data.data?.editorialCertificationLabel ??
-    "Point certification",
+    settingsResponse.data.data?.editorialCertificationLabel ?? "",
 
   item1Title:
-    settingsResponse.data.data?.editorialItem1Title ??
-    "Concierge Authentication",
+    settingsResponse.data.data?.editorialItem1Title ?? "",
 
   item1Text:
-    settingsResponse.data.data?.editorialItem1Text ??
-    "Every vehicle is inspected, verified and certified by our master technicians before entering the collection.",
+    settingsResponse.data.data?.editorialItem1Text ?? "",
 
   item2Title:
-    settingsResponse.data.data?.editorialItem2Title ??
-    "Complete Provenance",
+    settingsResponse.data.data?.editorialItem2Title ?? "",
 
   item2Text:
-    settingsResponse.data.data?.editorialItem2Text ??
-    "Full documented history, service records and originality reports accompany each machine.",
+    settingsResponse.data.data?.editorialItem2Text ?? "",
 
   item3Title:
-    settingsResponse.data.data?.editorialItem3Title ??
-    "Global Delivery",
+    settingsResponse.data.data?.editorialItem3Title ?? "",
 
   item3Text:
-    settingsResponse.data.data?.editorialItem3Text ??
-    "Enclosed transport, customs handling and white-glove handover anywhere in the world.",
+    settingsResponse.data.data?.editorialItem3Text ?? "",
 };
 
 setEditorialContent(editorialValue);
