@@ -83,8 +83,9 @@ const [editorialContent, setEditorialContent] = useState({
 const [privateViewingContent, setPrivateViewingContent] = useState({
   eyebrow: "",
   title: "",
-  text: "",
+  description: "",
   buttonText: "",
+  buttonLink: "",
   imageUrl: "",
 });
 
@@ -147,6 +148,26 @@ const [privateViewingContent, setPrivateViewingContent] = useState({
     settings.editorialItem3Title ?? "",
   item3Text:
     settings.editorialItem3Text ?? "",
+});
+
+setPrivateViewingContent({
+  eyebrow:
+    settings.privateViewingsEyebrow ?? "",
+
+  title:
+    settings.privateViewingsTitle ?? "",
+
+  description:
+    settings.privateViewingsDescription ?? "",
+
+  buttonText:
+    settings.privateViewingsButtonText ?? "",
+
+  buttonLink:
+    settings.privateViewingsButtonLink ?? "",
+
+  imageUrl:
+    settings.privateViewingsImageUrl ?? "",
 });
 
 setFeaturedText({
@@ -323,41 +344,42 @@ setFeaturedText({
       <Editorial content={editorialContent} />
 
       <section className="relative mx-auto max-w-7xl px-5 pb-8 lg:px-8">
-        <Reveal>
-          <div className="relative overflow-hidden rounded-3xl border border-white/10">
-            <img
-              src="https://images.pexels.com/photos/6046594/pexels-photo-6046594.jpeg?auto=compress&cs=tinysrgb&fit=crop&h=627&w=1200"
-              alt="City streets at night through a windshield"
-              className="absolute inset-0 h-full w-full object-cover"
-              loading="lazy"
-            />
+  <Reveal>
+    <div className="relative overflow-hidden rounded-3xl border border-white/10">
+      <img
+        src={privateViewingContent.imageUrl}
+        alt={privateViewingContent.title}
+        className="absolute inset-0 h-full w-full object-cover"
+        loading="lazy"
+      />
 
-            <div className="absolute inset-0 bg-gradient-to-r from-obsidian-950/95 via-obsidian-950/70 to-obsidian-950/30" />
+      <div className="absolute inset-0 bg-gradient-to-r from-obsidian-950/95 via-obsidian-950/70 to-obsidian-950/30" />
 
-            <div className="relative px-8 py-20 md:px-14 md:py-28">
-              <p className="font-display text-xs font-semibold tracking-[0.32em] text-champagne-400 uppercase">
-                Private viewings
-              </p>
+      <div className="relative px-8 py-20 md:px-14 md:py-28">
+        <p className="font-display text-xs font-semibold tracking-[0.32em] text-champagne-400 uppercase">
+          {privateViewingContent.eyebrow}
+        </p>
 
-              <h2 className="mt-4 max-w-xl font-display text-4xl font-bold tracking-tight md:text-6xl">
-                Your garage awaits.
-              </h2>
+        <h2 className="mt-4 max-w-xl font-display text-4xl font-bold tracking-tight md:text-6xl">
+          {privateViewingContent.title}
+        </h2>
 
-              <p className="mt-4 max-w-md text-zinc-400">
-                Every machine can be inspected in interactive 3D.
-              </p>
+        <p className="mt-4 max-w-md text-zinc-400">
+          {privateViewingContent.description}
+        </p>
 
-              <Link
-                to="/cars"
-                className="group mt-9 inline-flex items-center gap-3 rounded-full bg-champagne-400 px-7 py-3.5 text-sm font-bold tracking-[0.14em] text-obsidian-950 uppercase"
-              >
-                Browse the collection
-                <ChevronRight className="size-4 transition-transform duration-300 group-hover:translate-x-1" />
-              </Link>
-            </div>
-          </div>
-        </Reveal>
-      </section>
+        <Link
+          to={privateViewingContent.buttonLink}
+          className="group mt-9 inline-flex items-center gap-3 rounded-full bg-champagne-400 px-7 py-3.5 text-sm font-bold tracking-[0.14em] text-obsidian-950 uppercase"
+        >
+          {privateViewingContent.buttonText}
+
+          <ChevronRight className="size-4 transition-transform duration-300 group-hover:translate-x-1" />
+        </Link>
+      </div>
+    </div>
+  </Reveal>
+</section>
     </>
   );
 }

@@ -75,6 +75,27 @@ const [initialEditorialContent, setInitialEditorialContent] =
 
 const [savingEditorial, setSavingEditorial] =
   useState(false);
+  const [privateViewingContent, setPrivateViewingContent] = useState({
+  eyebrow: "",
+  title: "",
+  description: "",
+  buttonText: "",
+  buttonLink: "",
+  imageUrl: "",
+});
+
+const [initialPrivateViewingContent, setInitialPrivateViewingContent] =
+  useState({
+    eyebrow: "",
+    title: "",
+    description: "",
+    buttonText: "",
+    buttonLink: "",
+    imageUrl: "",
+  });
+
+const [savingPrivateViewing, setSavingPrivateViewing] =
+  useState(false);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
 
@@ -231,6 +252,29 @@ const editorialValue = {
 
 setEditorialContent(editorialValue);
 setInitialEditorialContent(editorialValue);
+
+const privateViewingValue = {
+  eyebrow:
+    settingsResponse.data.data?.privateViewingsEyebrow ?? "",
+
+  title:
+    settingsResponse.data.data?.privateViewingsTitle ?? "",
+
+  description:
+    settingsResponse.data.data?.privateViewingsDescription ?? "",
+
+  buttonText:
+    settingsResponse.data.data?.privateViewingsButtonText ?? "",
+
+  buttonLink:
+    settingsResponse.data.data?.privateViewingsButtonLink ?? "",
+
+  imageUrl:
+    settingsResponse.data.data?.privateViewingsImageUrl ?? "",
+};
+
+setPrivateViewingContent(privateViewingValue);
+setInitialPrivateViewingContent(privateViewingValue);
 
       } catch (error) {
         console.error(
@@ -466,6 +510,55 @@ async function saveEditorialContent() {
 
   } finally {
     setSavingEditorial(false);
+  }
+}
+
+async function savePrivateViewingContent() {
+  setSavingPrivateViewing(true);
+
+  try {
+    await adminApi.put(
+      "/api/site-settings/private-viewings",
+      {
+        privateViewingsEyebrow:
+          privateViewingContent.eyebrow.trim(),
+
+        privateViewingsTitle:
+          privateViewingContent.title.trim(),
+
+        privateViewingsDescription:
+          privateViewingContent.description.trim(),
+
+        privateViewingsButtonText:
+          privateViewingContent.buttonText.trim(),
+
+        privateViewingsButtonLink:
+          privateViewingContent.buttonLink.trim(),
+
+        privateViewingsImageUrl:
+          privateViewingContent.imageUrl.trim(),
+      }
+    );
+
+    setInitialPrivateViewingContent({
+      ...privateViewingContent,
+    });
+
+    toast.success(
+      "Private viewings content updated"
+    );
+
+  } catch (error) {
+    const message =
+      axios.isAxiosError(error)
+        ? error.response?.data?.error ??
+          "Could not update private viewings content"
+        : "Could not update private viewings content";
+
+    toast.error(message);
+
+  } finally {
+    setSavingPrivateViewing(false);
   }
 }
 
@@ -1164,12 +1257,170 @@ async function saveEditorialContent() {
 
 </div>
 
+
+
 </div>
+<div className="mt-8 rounded-2xl border border-white/10 bg-white/[0.025] p-6 md:p-8">
+  <div className="flex items-start gap-4">
+    <div className="flex size-11 shrink-0 items-center justify-center rounded-xl border border-white/10 bg-white/[0.04]">
+      <MonitorCog className="size-5 text-champagne-400" />
+    </div>
+
+    <div>
+      <h2 className="font-display text-xl font-semibold">
+        Private Viewings
+      </h2>
+
+      <p className="mt-1 text-sm leading-6 text-zinc-500">
+        Edit the private viewings section displayed at the bottom of the homepage.
+      </p>
+    </div>
+  </div>
+
+  <div className="mt-7 grid gap-5">
+    <div>
+      <label className="mb-2 block text-xs font-semibold tracking-[0.15em] text-zinc-500 uppercase">
+        Eyebrow
+      </label>
+
+      <input
+        type="text"
+        value={privateViewingContent.eyebrow}
+        onChange={(e) =>
+          setPrivateViewingContent({
+            ...privateViewingContent,
+            eyebrow: e.target.value,
+          })
+        }
+        disabled={savingPrivateViewing}
+        className="w-full rounded-xl border border-white/10 bg-obsidian-900 px-4 py-3 text-sm text-white outline-none focus:border-champagne-400/50 disabled:opacity-50"
+      />
+    </div>
+
+    <div>
+      <label className="mb-2 block text-xs font-semibold tracking-[0.15em] text-zinc-500 uppercase">
+        Title
+      </label>
+
+      <input
+        type="text"
+        value={privateViewingContent.title}
+        onChange={(e) =>
+          setPrivateViewingContent({
+            ...privateViewingContent,
+            title: e.target.value,
+          })
+        }
+        disabled={savingPrivateViewing}
+        className="w-full rounded-xl border border-white/10 bg-obsidian-900 px-4 py-3 text-sm text-white outline-none focus:border-champagne-400/50 disabled:opacity-50"
+      />
+    </div>
+
+    <div>
+      <label className="mb-2 block text-xs font-semibold tracking-[0.15em] text-zinc-500 uppercase">
+        Description
+      </label>
+
+      <textarea
+        value={privateViewingContent.description}
+        onChange={(e) =>
+          setPrivateViewingContent({
+            ...privateViewingContent,
+            description: e.target.value,
+          })
+        }
+        disabled={savingPrivateViewing}
+        rows={3}
+        className="w-full resize-none rounded-xl border border-white/10 bg-obsidian-900 px-4 py-3 text-sm text-white outline-none focus:border-champagne-400/50 disabled:opacity-50"
+      />
+    </div>
+
+    <div>
+      <label className="mb-2 block text-xs font-semibold tracking-[0.15em] text-zinc-500 uppercase">
+        Button Text
+      </label>
+
+      <input
+        type="text"
+        value={privateViewingContent.buttonText}
+        onChange={(e) =>
+          setPrivateViewingContent({
+            ...privateViewingContent,
+            buttonText: e.target.value,
+          })
+        }
+        disabled={savingPrivateViewing}
+        className="w-full rounded-xl border border-white/10 bg-obsidian-900 px-4 py-3 text-sm text-white outline-none focus:border-champagne-400/50 disabled:opacity-50"
+      />
+    </div>
+
+    <div>
+      <label className="mb-2 block text-xs font-semibold tracking-[0.15em] text-zinc-500 uppercase">
+        Button Link
+      </label>
+
+      <input
+        type="text"
+        value={privateViewingContent.buttonLink}
+        onChange={(e) =>
+          setPrivateViewingContent({
+            ...privateViewingContent,
+            buttonLink: e.target.value,
+          })
+        }
+        disabled={savingPrivateViewing}
+        className="w-full rounded-xl border border-white/10 bg-obsidian-900 px-4 py-3 text-sm text-white outline-none focus:border-champagne-400/50 disabled:opacity-50"
+      />
+    </div>
+
+    <div>
+      <label className="mb-2 block text-xs font-semibold tracking-[0.15em] text-zinc-500 uppercase">
+        Image URL
+      </label>
+
+      <input
+        type="text"
+        value={privateViewingContent.imageUrl}
+        onChange={(e) =>
+          setPrivateViewingContent({
+            ...privateViewingContent,
+            imageUrl: e.target.value,
+          })
+        }
+        disabled={savingPrivateViewing}
+        className="w-full rounded-xl border border-white/10 bg-obsidian-900 px-4 py-3 text-sm text-white outline-none focus:border-champagne-400/50 disabled:opacity-50"
+      />
+    </div>
+
+    <div className="flex justify-end border-t border-white/10 pt-6">
+      <button
+        type="button"
+        onClick={savePrivateViewingContent}
+        disabled={
+          savingPrivateViewing ||
+          JSON.stringify(privateViewingContent) ===
+            JSON.stringify(initialPrivateViewingContent)
+        }
+        className="inline-flex items-center gap-2 rounded-full bg-champagne-400 px-6 py-2.5 text-xs font-bold tracking-[0.12em] text-black uppercase transition-opacity disabled:cursor-not-allowed disabled:opacity-40"
+      >
+        {savingPrivateViewing && (
+          <Loader2 className="size-4 animate-spin" />
+        )}
+
+        {savingPrivateViewing
+          ? "Saving..."
+          : "Save Private Viewings"}
+      </button>
+    </div>
+  </div>
+</div>
+
 
 
         </section>
 
       </div>
+      
     </div>
     
   );

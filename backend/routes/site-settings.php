@@ -255,6 +255,34 @@ if (
         'editorialItem3Text' =>
             $content['editorial']['item3_text']
             ?? '',
+
+            /*
+ * Private Viewings section
+ */
+
+'privateViewingsEyebrow' =>
+    $content['private_viewings']['eyebrow']
+    ?? '',
+
+'privateViewingsTitle' =>
+    $content['private_viewings']['title']
+    ?? '',
+
+'privateViewingsDescription' =>
+    $content['private_viewings']['description']
+    ?? '',
+
+'privateViewingsButtonText' =>
+    $content['private_viewings']['button_text']
+    ?? '',
+
+'privateViewingsButtonLink' =>
+    $content['private_viewings']['button_link']
+    ?? '',
+
+'privateViewingsImageUrl' =>
+    $content['private_viewings']['image_url']
+    ?? '',
     ]);
 }
 
@@ -895,5 +923,116 @@ if (
 
         'editorialItem3Text' =>
             $editorialItem3Text,
+    ]);
+}
+
+/* =========================================================
+   UPDATE PRIVATE VIEWINGS CONTENT
+========================================================= */
+
+if (
+    $route === 'site-settings/private-viewings'
+    &&
+    $method === 'PUT'
+) {
+
+    requirePermission(
+        $pdo,
+        'site_content.edit'
+    );
+
+    $b = body();
+
+    $privateViewingsEyebrow =
+        trim((string)($b['privateViewingsEyebrow'] ?? ''));
+
+    $privateViewingsTitle =
+        trim((string)($b['privateViewingsTitle'] ?? ''));
+
+    $privateViewingsDescription =
+        trim((string)($b['privateViewingsDescription'] ?? ''));
+
+    $privateViewingsButtonText =
+        trim((string)($b['privateViewingsButtonText'] ?? ''));
+
+    $privateViewingsButtonLink =
+        trim((string)($b['privateViewingsButtonLink'] ?? ''));
+
+    $privateViewingsImageUrl =
+        trim((string)($b['privateViewingsImageUrl'] ?? ''));
+
+    if (
+        $privateViewingsEyebrow === '' ||
+        $privateViewingsTitle === '' ||
+        $privateViewingsDescription === '' ||
+        $privateViewingsButtonText === '' ||
+        $privateViewingsButtonLink === '' ||
+        $privateViewingsImageUrl === ''
+    ) {
+        fail(
+            'All private viewings fields are required',
+            422
+        );
+    }
+
+    $pdo->beginTransaction();
+
+    try {
+
+        saveHomeContent(
+            $pdo,
+            'private_viewings',
+            [
+                'eyebrow' =>
+                    $privateViewingsEyebrow,
+
+                'title' =>
+                    $privateViewingsTitle,
+
+                'description' =>
+                    $privateViewingsDescription,
+
+                'button_text' =>
+                    $privateViewingsButtonText,
+
+                'button_link' =>
+                    $privateViewingsButtonLink,
+
+                'image_url' =>
+                    $privateViewingsImageUrl,
+            ]
+        );
+
+        $pdo->commit();
+
+    } catch (Throwable $e) {
+
+        if ($pdo->inTransaction()) {
+            $pdo->rollBack();
+        }
+
+        throw $e;
+    }
+
+    out([
+        'success' => true,
+
+        'privateViewingsEyebrow' =>
+            $privateViewingsEyebrow,
+
+        'privateViewingsTitle' =>
+            $privateViewingsTitle,
+
+        'privateViewingsDescription' =>
+            $privateViewingsDescription,
+
+        'privateViewingsButtonText' =>
+            $privateViewingsButtonText,
+
+        'privateViewingsButtonLink' =>
+            $privateViewingsButtonLink,
+
+        'privateViewingsImageUrl' =>
+            $privateViewingsImageUrl,
     ]);
 }
