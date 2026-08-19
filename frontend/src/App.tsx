@@ -13,6 +13,8 @@ import {
   AdminLoginPage,
   NewCarPage,
   EditCarPage,
+  AdminTestDrivesPage,
+
 } from "@/pages/AdminPages";
 import { AdminUserForm } from "@/components/admin/admin-user-form";
 
@@ -23,6 +25,10 @@ import { WebsiteContentPage } from "@/components/admin/website-content-page";
 import { RegisterPage } from "@/pages/RegisterPage";
 import { LoginPage } from "@/pages/LoginPage";
 import { ProfilePage } from "@/pages/ProfilePage";
+import { BookTestDrivePage } from "@/pages/BookTestDrivePage";
+import {
+  MyTestDrivesPage,
+} from "@/pages/MyTestDrivesPage";
 export default function App() {
   return (
     <BrowserRouter>
@@ -75,6 +81,10 @@ export default function App() {
               path="/admin"
               element={<AdminPage />}
             />
+            <Route
+              path="/admin/test-drives"
+              element={<AdminTestDrivesPage />}
+            />
 
             <Route path="/admin/profile" element={<AdminProfilePage/>}/>
 
@@ -102,9 +112,18 @@ export default function App() {
               path="/admin/cars/:id"
               element={<EditCarPage />}
             />
+            <Route
+              path="/cars/:id/test-drive"
+              element={<BookTestDrivePage />}
+            />
             <Route path="/admin/users/new" element={<AdminUserForm/>}/>
+            <Route
+              path="/my-test-drives"
+              element={<MyTestDrivesPage />}
+            />
 
           </Routes>
+          
         </main>
 
         <Footer />
