@@ -805,6 +805,34 @@ if (
             409
         );
     }
+    /*
+|--------------------------------------------------------------------------
+| PREVENT EARLY COMPLETION
+|--------------------------------------------------------------------------
+*/
+
+if ($newStatus === 'completed') {
+
+    $bookingStart = new DateTime(
+        $booking['test_drive_date']
+        . ' '
+        . $booking['test_drive_time']
+    );
+
+    $bookingEnd = clone $bookingStart;
+
+    // Test drive duration = 60 minutes
+    $bookingEnd->modify('+60 minutes');
+
+    $now = new DateTime();
+
+    if ($now < $bookingEnd) {
+        fail(
+            'This test drive cannot be completed before the appointment has ended.',
+            409
+        );
+    }
+}
 
 
     /*
