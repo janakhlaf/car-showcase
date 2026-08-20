@@ -22,6 +22,7 @@ export function RegisterForm() {
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
   const [phone, setPhone] = useState("");
+  const [countryCode, setCountryCode] = useState("+970");
   const [password, setPassword] = useState("");
   const [confirmPassword, setConfirmPassword] =
     useState("");
@@ -45,6 +46,20 @@ export function RegisterForm() {
       return;
     }
 
+    const cleanPhone = phone
+      .replace(/\D/g, "")
+      .replace(/^0+/, "");
+
+    if (!/^5\d{8}$/.test(cleanPhone)) {
+      toast.error(
+        "Enter a valid mobile number starting with 5"
+      );
+      return;
+    }
+
+    const fullPhone =
+      countryCode.replace("+", "") + cleanPhone;
+
     setLoading(true);
 
     try {
@@ -53,7 +68,7 @@ export function RegisterForm() {
         {
           name: name.trim(),
           email: email.trim(),
-          phone: phone.trim(),
+          phone: fullPhone,
           password,
         }
       );
@@ -167,31 +182,55 @@ navigate(loginUrl);
 
         {/* PHONE */}
 
-        <label className="mt-5 block">
-          <span className="text-[11px] font-semibold tracking-[0.2em] text-zinc-500 uppercase">
-            Phone Number
-          </span>
+          <label className="mt-5 block">
+            <span className="text-[11px] font-semibold tracking-[0.2em] text-zinc-500 uppercase">
+              Phone Number
+            </span>
 
-          <span className="relative mt-2 block">
-            <Phone
-              className="absolute top-1/2 left-4 size-4 -translate-y-1/2 text-zinc-500"
-              aria-hidden
-            />
+            <div className="mt-2 flex gap-2">
+              <select
+                value={countryCode}
+                onChange={(e) =>
+                  setCountryCode(e.target.value)
+                }
+                disabled={loading}
+                className="rounded-xl border border-white/10 bg-obsidian-900/80 px-3 py-3 text-sm text-zinc-200 outline-none focus:border-champagne-400/60 disabled:opacity-60"
+              >
+                <option value="+970">+970</option>
+                <option value="+972">+972</option>
+              </select>
 
-            <input
-              type="tel"
-              required
-              autoComplete="tel"
-              value={phone}
-              onChange={(e) =>
-                setPhone(e.target.value)
-              }
-              placeholder="Phone number"
-              disabled={loading}
-              className="w-full rounded-xl border border-white/10 bg-obsidian-900/80 py-3 pr-4 pl-11 text-sm outline-none placeholder:text-zinc-600 focus:border-champagne-400/60 disabled:opacity-60"
-            />
-          </span>
-        </label>
+              <span className="relative block flex-1">
+                <Phone
+                  className="absolute top-1/2 left-4 size-4 -translate-y-1/2 text-zinc-500"
+                  aria-hidden
+                />
+
+                <input
+                  type="tel"
+                  required
+                  inputMode="numeric"
+                  autoComplete="tel"
+                  value={phone}
+                  onChange={(e) => {
+                    const value = e.target.value
+                      .replace(/\D/g, "")
+                      .replace(/^0+/, "")
+                      .slice(0, 9);
+
+                    setPhone(value);
+                  }}
+                  placeholder="59XXXXXXX"
+                  disabled={loading}
+                  className="w-full rounded-xl border border-white/10 bg-obsidian-900/80 py-3 pr-4 pl-11 text-sm outline-none placeholder:text-zinc-600 focus:border-champagne-400/60 disabled:opacity-60"
+                />
+              </span>
+            </div>
+
+            <p className="mt-2 text-xs text-zinc-600">
+              Enter your mobile number without the leading 0.
+            </p>
+          </label>
 
         {/* PASSWORD */}
 

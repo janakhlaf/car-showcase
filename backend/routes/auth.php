@@ -75,6 +75,38 @@ if (
         );
     }
 
+    /*
+    |--------------------------------------------------------------------------
+    | VALIDATE INTERNATIONAL PHONE NUMBER
+    |--------------------------------------------------------------------------
+    |
+    | Supported country codes:
+    | Palestine +970
+    | Israel    +972
+    |
+    | Stored format example:
+    | 970599123456
+    |
+    */
+
+    $phone = preg_replace(
+        '/\D+/',
+        '',
+        $phone
+    );
+
+    if (
+        !preg_match(
+            '/^(970|972)5\d{8}$/',
+            $phone
+        )
+    ) {
+        fail(
+            'Enter a valid phone number with +970 or +972',
+            422
+        );
+    }
+
 
     if (strlen($password) < 8) {
         fail(
