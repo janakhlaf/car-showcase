@@ -1,5 +1,9 @@
 import { useState } from "react";
-import { Link, useNavigate } from "react-router-dom";
+import {
+  Link,
+  useNavigate,
+  useSearchParams,
+} from "react-router-dom";
 import axios from "axios";
 import {
   Loader2,
@@ -13,6 +17,7 @@ import { toast } from "sonner";
 
 export function RegisterForm() {
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
 
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
@@ -58,11 +63,15 @@ export function RegisterForm() {
           "You can now sign in to your account.",
       });
 
-      navigate(
-        `/login?email=${encodeURIComponent(
-          email.trim()
-        )}`
-      );
+      const redirect = searchParams.get("redirect");
+
+const loginUrl =
+  `/login?email=${encodeURIComponent(email.trim())}` +
+  (redirect
+    ? `&redirect=${encodeURIComponent(redirect)}`
+    : "");
+
+navigate(loginUrl);
     } catch (error) {
       const message =
         axios.isAxiosError(error)
@@ -267,7 +276,13 @@ export function RegisterForm() {
         <p className="mt-6 text-center text-sm text-zinc-500">
           Already have an account?{" "}
           <Link
-            to="/login"
+            to={
+              searchParams.get("redirect")
+                ? `/login?redirect=${encodeURIComponent(
+                    searchParams.get("redirect")!
+                  )}`
+                : "/login"
+            }
             className="font-semibold text-champagne-300 transition-colors hover:text-champagne-200"
           >
             Sign In

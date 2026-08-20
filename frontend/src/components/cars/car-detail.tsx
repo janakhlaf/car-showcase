@@ -297,14 +297,26 @@ export function CarDetail({
                 </div>
               ))}
             </dl>
-            <button
-              type="button"
-              onClick={enquire}
-              className="group mt-6 flex w-full items-center justify-center gap-2 rounded-full bg-champagne-400 px-6 py-3.5 text-sm font-bold tracking-[0.14em] text-obsidian-950 uppercase transition-all hover:bg-champagne-300 hover:shadow-[0_0_36px_-8px_rgba(217,185,129,0.6)]"
-            >
-              Enquire now
-              <ArrowUpRight className="size-4 transition-transform duration-300 group-hover:rotate-45" />
-            </button>
+            <div className="mt-6 space-y-3">
+
+  <Link
+    to={`/cars/${car.id}/test-drive`}
+    className="group flex w-full items-center justify-center gap-2 rounded-full bg-champagne-400 px-6 py-3.5 text-sm font-bold tracking-[0.14em] text-obsidian-950 uppercase transition-all hover:bg-champagne-300 hover:shadow-[0_0_36px_-8px_rgba(217,185,129,0.6)]"
+  >
+    Book Test Drive
+    <ArrowUpRight className="size-4 transition-transform duration-300 group-hover:rotate-45" />
+  </Link>
+
+  <button
+    type="button"
+    onClick={enquire}
+    className="group flex w-full items-center justify-center gap-2 rounded-full border border-champagne-400/40 px-6 py-3.5 text-sm font-bold tracking-[0.14em] text-champagne-300 uppercase transition-all hover:bg-champagne-400/10"
+  >
+    Enquire Now
+    <ArrowUpRight className="size-4 transition-transform duration-300 group-hover:rotate-45" />
+  </button>
+
+</div>
             <button
               type="button"
               onClick={share}

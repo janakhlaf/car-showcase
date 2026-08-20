@@ -354,7 +354,10 @@ export function AdminTestDrivesPage() {
                 <button
                   type="button"
                   title="Manage booking"
-                  onClick={() => setSelectedBooking(booking)}
+                  onClick={() => {
+                  setError("");
+                  setSelectedBooking(booking);
+                }}
                   className="flex h-10 w-10 items-center justify-center rounded-full border border-white/10 text-white/60 transition hover:border-[#d7b36a]/50 hover:bg-[#d7b36a]/10 hover:text-[#d7b36a]"
                 >
                   <Eye className="h-4 w-4" />
@@ -372,7 +375,10 @@ export function AdminTestDrivesPage() {
       {selectedBooking && (
         <div
           className="fixed inset-0 z-[100] flex items-center justify-center bg-black/70 px-5 backdrop-blur-sm"
-          onClick={() => setSelectedBooking(null)}
+          onClick={() => {
+          setError("");
+          setSelectedBooking(null);
+        }}
         >
           <div
             className="w-full max-w-xl rounded-3xl border border-white/10 bg-[#0d0d0f] p-7 shadow-2xl"
@@ -393,7 +399,10 @@ export function AdminTestDrivesPage() {
 
               <button
                 type="button"
-                onClick={() => setSelectedBooking(null)}
+                onClick={() => {
+                setError("");
+                setSelectedBooking(null);
+              }}
                 className="rounded-full border border-white/10 px-4 py-2 text-xs text-white/50 transition hover:border-white/20 hover:text-white"
               >
                 Close
@@ -490,7 +499,11 @@ export function AdminTestDrivesPage() {
                 {selectedBooking.status}
               </span>
             </div>
-
+            {error && (
+              <div className="mt-6 rounded-xl border border-red-500/20 bg-red-500/10 px-4 py-3 text-sm text-red-300">
+                {error}
+              </div>
+            )}
             {/* ACTIONS */}
             <div className="mt-7 flex flex-wrap gap-3">
 

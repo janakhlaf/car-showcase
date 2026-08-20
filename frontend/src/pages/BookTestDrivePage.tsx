@@ -196,11 +196,13 @@ export function BookTestDrivePage() {
 
 
       setSuccess(
-        `Your test drive request has been submitted for ${booking.testDriveDate} at ${booking.testDriveTime}.`
-      );
+  `Your test drive request has been submitted for ${booking.testDriveDate} at ${booking.testDriveTime}.`
+);
 
+setNotes("");
 
-      setNotes("");
+// Go to My Test Drives after successful booking
+navigate("/my-test-drives");
 
 
     } catch (error) {

@@ -244,9 +244,14 @@ export function UserLoginForm() {
         <p className="mt-6 text-center text-sm text-zinc-500">
           Don't have an account?{" "}
           <Link
-            to="/register"
-            className="font-semibold text-champagne-300 transition-colors hover:text-champagne-200"
-          >
+  to={
+    searchParams.get("redirect")
+      ? `/register?redirect=${encodeURIComponent(
+          searchParams.get("redirect")!
+        )}`
+      : "/register"
+  }
+>
             Create Account
           </Link>
         </p>

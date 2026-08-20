@@ -11,6 +11,7 @@ import axios from "axios";
 import { adminApi } from "@/lib/admin-auth";
 import { AnimatePresence, motion } from "framer-motion";
 import {
+  CalendarDays,
   CircleDollarSign,
   ExternalLink,
   Layers,
@@ -147,6 +148,19 @@ export function CarsTable({
       Roles & Permissions
     </Link>
   </>
+)}
+
+{(
+  adminRole === "super_admin" ||
+  adminPermissions.includes("test_drives.manage")
+) && (
+  <Link
+    to="/admin/test-drives"
+    className="inline-flex items-center gap-2 rounded-full border border-white/10 px-5 py-3 text-xs font-semibold tracking-[0.14em] text-zinc-300 uppercase transition-colors hover:border-champagne-400/40 hover:text-champagne-300"
+  >
+    <CalendarDays className="size-4" />
+    Test Drive Bookings
+  </Link>
 )}
 
 {adminPermissions.includes("site_content.edit") && (
