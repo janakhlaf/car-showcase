@@ -211,14 +211,21 @@ export function UserLoginForm() {
               required
               autoComplete="current-password"
               value={password}
-              onChange={(e) =>
-                setPassword(e.target.value)
-              }
+              onChange={(e) => setPassword(e.target.value)}
               placeholder="Enter your password"
               disabled={loading}
               className="w-full rounded-xl border border-white/10 bg-obsidian-900/80 py-3 pr-4 pl-11 text-sm outline-none placeholder:text-zinc-600 focus:border-champagne-400/60 disabled:opacity-60"
             />
           </span>
+
+          <div className="mt-2 text-right">
+            <Link
+              to="/forgot-password"
+              className="text-xs font-semibold text-champagne-300 transition-colors hover:text-champagne-200"
+            >
+              Forgot Password?
+            </Link>
+          </div>
         </label>
 
         {/* SIGN IN */}

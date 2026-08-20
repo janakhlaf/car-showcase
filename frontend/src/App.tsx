@@ -7,6 +7,7 @@ import { HomePage } from "@/pages/HomePage";
 import { CarsPage } from "@/pages/CarsPage";
 import { CarDetailPage } from "@/pages/CarDetailPage";
 import { ChangePasswordPage } from "@/components/admin/change-password-page";
+import { VerifyOtpPage } from "./pages/VerifyOtpPage";
 
 import {
   AdminPage,
@@ -24,8 +25,10 @@ import { AdminRolesPage } from "@/components/admin/admin-roles-page";
 import { WebsiteContentPage } from "@/components/admin/website-content-page";
 import { RegisterPage } from "@/pages/RegisterPage";
 import { LoginPage } from "@/pages/LoginPage";
+import { ForgotPasswordPage } from "@/pages/ForgotPasswordPage";
 import { ProfilePage } from "@/pages/ProfilePage";
 import { BookTestDrivePage } from "@/pages/BookTestDrivePage";
+import { ResetPasswordPage } from "@/pages/ResetPasswordPage";
 import {
   MyTestDrivesPage,
 } from "@/pages/MyTestDrivesPage";
@@ -62,6 +65,17 @@ export default function App() {
                 path="/login"
                 element={<LoginPage />}
               />
+              <Route
+                path="/forgot-password"
+                element={<ForgotPasswordPage />}
+              />
+              <Route path="/verify-otp" element={<VerifyOtpPage />} />
+
+              <Route
+                path="/reset-password"
+                element={<ResetPasswordPage />}
+              />
+
               <Route
                 path="/profile"
                 element={<ProfilePage />}

@@ -350,6 +350,708 @@ $refreshStatement->execute([
         ]
     ]);
 }
+
+/*
+|--------------------------------------------------------------------------
+| FORGOT PASSWORD - SEND OTP
+|--------------------------------------------------------------------------
+*/
+
+if (
+    $route === 'auth/forgot-password'
+    &&
+    $method === 'POST'
+) {
+    $b = body();
+
+    /*
+    |--------------------------------------------------------------------------
+    | READ EMAIL
+    |--------------------------------------------------------------------------
+    */
+
+    $email = strtolower(
+        trim(
+            (string)($b['email'] ?? '')
+        )
+    );
+
+
+    /*
+    |--------------------------------------------------------------------------
+    | VALIDATE EMAIL
+    |--------------------------------------------------------------------------
+    */
+
+    if (
+        $email === ''
+        ||
+        !filter_var(
+            $email,
+            FILTER_VALIDATE_EMAIL
+        )
+    ) {
+        fail(
+            'Valid email is required',
+            422
+        );
+    }
+
+
+    /*
+    |--------------------------------------------------------------------------
+    | FIND USER
+    |--------------------------------------------------------------------------
+    */
+
+    $statement = $pdo->prepare(
+        'SELECT
+            id,
+            name,
+            email
+         FROM users
+         WHERE email = ?
+         LIMIT 1'
+    );
+
+    $statement->execute([
+        $email
+    ]);
+
+    $user = $statement->fetch();
+
+
+    /*
+    |--------------------------------------------------------------------------
+    | SECURITY RESPONSE
+    |--------------------------------------------------------------------------
+    |
+    | Do not reveal whether an account exists.
+    |
+    */
+
+    if (!$user) {
+        out([
+            'message' =>
+                'If an account exists for this email, a verification code has been sent.'
+        ]);
+    }
+
+
+    /*
+    |--------------------------------------------------------------------------
+    | INVALIDATE OLD OTP CODES
+    |--------------------------------------------------------------------------
+    */
+
+    $invalidateStatement =
+        $pdo->prepare(
+            'UPDATE password_reset_otps
+             SET used_at = CURRENT_TIMESTAMP
+             WHERE user_id = ?
+               AND used_at IS NULL'
+        );
+
+    $invalidateStatement->execute([
+        (int)$user['id']
+    ]);
+
+
+    /*
+    |--------------------------------------------------------------------------
+    | GENERATE 6-DIGIT OTP
+    |--------------------------------------------------------------------------
+    */
+
+    $otp = (string)random_int(
+        100000,
+        999999
+    );
+
+
+    /*
+    |--------------------------------------------------------------------------
+    | HASH OTP
+    |--------------------------------------------------------------------------
+    */
+
+    $otpHash =
+        password_hash(
+            $otp,
+            PASSWORD_DEFAULT
+        );
+
+    if ($otpHash === false) {
+        fail(
+            'Could not generate verification code',
+            500
+        );
+    }
+
+
+    /*
+    |--------------------------------------------------------------------------
+    | EXPIRATION - 5 MINUTES
+    |--------------------------------------------------------------------------
+    */
+
+    $expiresAt =
+        (new DateTime())
+            ->modify('+5 minutes')
+            ->format('Y-m-d H:i:s');
+
+
+    /*
+    |--------------------------------------------------------------------------
+    | STORE OTP
+    |--------------------------------------------------------------------------
+    */
+
+    $insertStatement =
+        $pdo->prepare(
+            'INSERT INTO password_reset_otps
+            (
+                user_id,
+                otp_hash,
+                expires_at,
+                attempts,
+                verified_at,
+                used_at
+            )
+            VALUES
+            (
+                ?, ?, ?, 0, NULL, NULL
+            )'
+        );
+
+    $insertStatement->execute([
+        (int)$user['id'],
+        $otpHash,
+        $expiresAt
+    ]);
+
+
+    /*
+    |--------------------------------------------------------------------------
+    | SEND EMAIL
+    |--------------------------------------------------------------------------
+    */
+
+    $emailBody = '
+        <div style="
+            font-family: Arial, sans-serif;
+            max-width: 520px;
+            margin: 0 auto;
+            padding: 32px;
+            background: #111111;
+            color: #ffffff;
+            border-radius: 16px;
+        ">
+            <h2 style="
+                margin: 0 0 16px;
+                color: #d7b36a;
+            ">
+                VELOCE Password Reset
+            </h2>
+
+            <p style="
+                color: #cccccc;
+                line-height: 1.6;
+            ">
+                Hello ' .
+                htmlspecialchars(
+                    $user['name'],
+                    ENT_QUOTES,
+                    'UTF-8'
+                ) .
+                ',
+            </p>
+
+            <p style="
+                color: #cccccc;
+                line-height: 1.6;
+            ">
+                Use the verification code below to reset your password:
+            </p>
+
+            <div style="
+                margin: 28px 0;
+                padding: 18px;
+                text-align: center;
+                font-size: 32px;
+                font-weight: bold;
+                letter-spacing: 8px;
+                background: #1c1c1c;
+                color: #d7b36a;
+                border-radius: 12px;
+            ">
+                ' . $otp . '
+            </div>
+
+            <p style="
+                color: #999999;
+                font-size: 13px;
+                line-height: 1.6;
+            ">
+                This code expires in 5 minutes.
+                If you did not request a password reset,
+                you can ignore this email.
+            </p>
+        </div>
+    ';
+
+
+    $sent = sendEmail(
+        $user['email'],
+        'VELOCE Password Reset Code',
+        $emailBody
+    );
+
+
+    /*
+    |--------------------------------------------------------------------------
+    | EMAIL ERROR
+    |--------------------------------------------------------------------------
+    */
+
+    if (!$sent) {
+        fail(
+            'Could not send verification code',
+            500
+        );
+    }
+
+
+    /*
+    |--------------------------------------------------------------------------
+    | RESPONSE
+    |--------------------------------------------------------------------------
+    */
+
+    out([
+        'message' =>
+            'If an account exists for this email, a verification code has been sent.'
+    ]);
+}
+
+/*
+|--------------------------------------------------------------------------
+| VERIFY PASSWORD RESET OTP
+|--------------------------------------------------------------------------
+*/
+
+if (
+    $route === 'auth/verify-reset-otp'
+    &&
+    $method === 'POST'
+) {
+    $b = body();
+
+    $email = strtolower(
+        trim(
+            (string)($b['email'] ?? '')
+        )
+    );
+
+    $otp = trim(
+        (string)($b['otp'] ?? '')
+    );
+
+    /*
+    |--------------------------------------------------------------------------
+    | VALIDATION
+    |--------------------------------------------------------------------------
+    */
+
+    if (
+        $email === ''
+        ||
+        !filter_var(
+            $email,
+            FILTER_VALIDATE_EMAIL
+        )
+    ) {
+        fail(
+            'Valid email is required',
+            422
+        );
+    }
+
+    if (
+        strlen($otp) !== 6
+        ||
+        !ctype_digit($otp)
+    ) {
+        fail(
+            'Invalid verification code',
+            422
+        );
+    }
+
+    /*
+    |--------------------------------------------------------------------------
+    | FIND USER
+    |--------------------------------------------------------------------------
+    */
+
+    $userStatement = $pdo->prepare(
+        'SELECT id
+         FROM users
+         WHERE email = ?
+         LIMIT 1'
+    );
+
+    $userStatement->execute([
+        $email
+    ]);
+
+    $user = $userStatement->fetch();
+
+    if (!$user) {
+        fail(
+            'Invalid or expired verification code',
+            400
+        );
+    }
+
+    /*
+    |--------------------------------------------------------------------------
+    | FIND LATEST ACTIVE OTP
+    |--------------------------------------------------------------------------
+    */
+
+    $otpStatement = $pdo->prepare(
+        'SELECT
+            id,
+            otp_hash,
+            expires_at,
+            attempts,
+            verified_at,
+            used_at
+         FROM password_reset_otps
+         WHERE user_id = ?
+           AND used_at IS NULL
+         ORDER BY id DESC
+         LIMIT 1'
+    );
+
+    $otpStatement->execute([
+        (int)$user['id']
+    ]);
+
+    $otpRow = $otpStatement->fetch();
+
+    if (!$otpRow) {
+        fail(
+            'Invalid or expired verification code',
+            400
+        );
+    }
+
+    /*
+    |--------------------------------------------------------------------------
+    | CHECK EXPIRATION
+    |--------------------------------------------------------------------------
+    */
+
+    if (
+        strtotime($otpRow['expires_at'])
+        <= time()
+    ) {
+        fail(
+            'Verification code has expired',
+            400
+        );
+    }
+
+    /*
+    |--------------------------------------------------------------------------
+    | LIMIT ATTEMPTS
+    |--------------------------------------------------------------------------
+    */
+
+    if ((int)$otpRow['attempts'] >= 5) {
+        fail(
+            'Too many incorrect attempts. Request a new code.',
+            429
+        );
+    }
+
+    /*
+    |--------------------------------------------------------------------------
+    | VERIFY OTP
+    |--------------------------------------------------------------------------
+    */
+
+    if (
+        !password_verify(
+            $otp,
+            $otpRow['otp_hash']
+        )
+    ) {
+        $attemptStatement =
+            $pdo->prepare(
+                'UPDATE password_reset_otps
+                 SET attempts = attempts + 1
+                 WHERE id = ?'
+            );
+
+        $attemptStatement->execute([
+            (int)$otpRow['id']
+        ]);
+
+        fail(
+            'Invalid verification code',
+            400
+        );
+    }
+
+    /*
+    |--------------------------------------------------------------------------
+    | MARK OTP AS VERIFIED
+    |--------------------------------------------------------------------------
+    */
+
+    $verifyStatement =
+        $pdo->prepare(
+            'UPDATE password_reset_otps
+             SET verified_at = CURRENT_TIMESTAMP
+             WHERE id = ?'
+        );
+
+    $verifyStatement->execute([
+        (int)$otpRow['id']
+    ]);
+
+    /*
+    |--------------------------------------------------------------------------
+    | RESPONSE
+    |--------------------------------------------------------------------------
+    */
+
+    out([
+        'message' =>
+            'Verification code confirmed'
+    ]);
+}
+
+/*
+|--------------------------------------------------------------------------
+| RESET PASSWORD
+|--------------------------------------------------------------------------
+*/
+
+if (
+    $route === 'auth/reset-password'
+    &&
+    $method === 'POST'
+) {
+    $b = body();
+
+    $email = strtolower(
+        trim(
+            (string)($b['email'] ?? '')
+        )
+    );
+
+    $otp = trim(
+        (string)($b['otp'] ?? '')
+    );
+
+    $newPassword =
+        (string)($b['password'] ?? '');
+
+    /*
+    |--------------------------------------------------------------------------
+    | VALIDATION
+    |--------------------------------------------------------------------------
+    */
+
+    if (
+        $email === ''
+        ||
+        !filter_var(
+            $email,
+            FILTER_VALIDATE_EMAIL
+        )
+    ) {
+        fail(
+            'Valid email is required',
+            422
+        );
+    }
+
+    if (
+        strlen($otp) !== 6
+        ||
+        !ctype_digit($otp)
+    ) {
+        fail(
+            'Invalid verification code',
+            422
+        );
+    }
+
+    if (strlen($newPassword) < 8) {
+        fail(
+            'Password must be at least 8 characters',
+            422
+        );
+    }
+
+    /*
+    |--------------------------------------------------------------------------
+    | FIND USER
+    |--------------------------------------------------------------------------
+    */
+
+    $userStatement = $pdo->prepare(
+        'SELECT id
+         FROM users
+         WHERE email = ?
+         LIMIT 1'
+    );
+
+    $userStatement->execute([
+        $email
+    ]);
+
+    $user = $userStatement->fetch();
+
+    if (!$user) {
+        fail(
+            'Unable to reset password',
+            400
+        );
+    }
+
+    /*
+    |--------------------------------------------------------------------------
+    | FIND VERIFIED OTP
+    |--------------------------------------------------------------------------
+    */
+
+    $otpStatement = $pdo->prepare(
+        'SELECT
+            id,
+            otp_hash,
+            expires_at,
+            verified_at,
+            used_at
+         FROM password_reset_otps
+         WHERE user_id = ?
+           AND verified_at IS NOT NULL
+           AND used_at IS NULL
+         ORDER BY id DESC
+         LIMIT 1'
+    );
+
+    $otpStatement->execute([
+        (int)$user['id']
+    ]);
+
+    $otpRow = $otpStatement->fetch();
+
+    if (!$otpRow) {
+        fail(
+            'Verification required',
+            400
+        );
+    }
+
+    /*
+    |--------------------------------------------------------------------------
+    | CHECK EXPIRATION
+    |--------------------------------------------------------------------------
+    */
+
+    if (
+        strtotime($otpRow['expires_at'])
+        <= time()
+    ) {
+        fail(
+            'Verification code has expired',
+            400
+        );
+    }
+
+    /*
+    |--------------------------------------------------------------------------
+    | VERIFY OTP AGAIN
+    |--------------------------------------------------------------------------
+    */
+
+    if (
+        !password_verify(
+            $otp,
+            $otpRow['otp_hash']
+        )
+    ) {
+        fail(
+            'Invalid verification code',
+            400
+        );
+    }
+
+    /*
+    |--------------------------------------------------------------------------
+    | CREATE NEW PASSWORD HASH
+    |--------------------------------------------------------------------------
+    */
+
+    $passwordHash =
+        password_hash(
+            $newPassword,
+            PASSWORD_DEFAULT
+        );
+
+    /*
+    |--------------------------------------------------------------------------
+    | UPDATE PASSWORD
+    |--------------------------------------------------------------------------
+    */
+
+    $updatePassword =
+        $pdo->prepare(
+            'UPDATE users
+             SET password_hash = ?
+             WHERE id = ?'
+        );
+
+    $updatePassword->execute([
+        $passwordHash,
+        (int)$user['id']
+    ]);
+
+    /*
+    |--------------------------------------------------------------------------
+    | MARK OTP AS USED
+    |--------------------------------------------------------------------------
+    */
+
+    $useOtp =
+        $pdo->prepare(
+            'UPDATE password_reset_otps
+             SET used_at = CURRENT_TIMESTAMP
+             WHERE id = ?'
+        );
+
+    $useOtp->execute([
+        (int)$otpRow['id']
+    ]);
+
+    /*
+    |--------------------------------------------------------------------------
+    | SUCCESS
+    |--------------------------------------------------------------------------
+    */
+
+    out([
+        'message' =>
+            'Password reset successfully'
+    ]);
+}
+
 /*
 |--------------------------------------------------------------------------
 | USER PROFILE
