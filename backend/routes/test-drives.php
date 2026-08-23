@@ -1,6 +1,7 @@
 <?php
 
 declare(strict_types=1);
+require_once __DIR__ . '/../helpers/whatsapp.php';
 
 
 /*
@@ -415,6 +416,67 @@ if (
             : null
     ]);
 
+    /*
+|--------------------------------------------------------------------------
+| WHATSAPP NOTIFICATIONS - NEW BOOKING
+|--------------------------------------------------------------------------
+*/
+
+$bookingId = (int)$pdo->lastInsertId();
+
+/*
+|--------------------------------------------------------------------------
+| USER MESSAGE
+|--------------------------------------------------------------------------
+*/
+
+$userMessage =
+    "VELOCE Test Drive Request\n\n" .
+    "Hi " . $user['name'] . ",\n\n" .
+    "Your test drive request has been submitted successfully.\n\n" .
+    "Car: " . $car['name'] . "\n" .
+    "Branch: " . ucfirst($branch) . "\n" .
+    "Date: " . $testDriveDate . "\n" .
+    "Time: " . $testDriveTime . "\n" .
+    "Status: Pending\n\n" .
+    "We will notify you once your request is reviewed.";
+
+sendWhatsAppMessage(
+    $user['phone'],
+    $userMessage
+);
+
+
+/*
+|--------------------------------------------------------------------------
+| ADMIN MESSAGE
+|--------------------------------------------------------------------------
+*/
+
+$adminPhone =
+    getenv('WHATSAPP_ADMIN_PHONE') ?: '';
+
+if ($adminPhone !== '') {
+
+    $adminMessage =
+        "VELOCE - New Test Drive Booking\n\n" .
+        "A new test drive request has been submitted.\n\n" .
+        "Booking ID: #" . $bookingId . "\n" .
+        "Customer: " . $user['name'] . "\n" .
+        "Email: " . $user['email'] . "\n" .
+        "Phone: +" . $user['phone'] . "\n" .
+        "Car: " . $car['name'] . "\n" .
+        "Branch: " . ucfirst($branch) . "\n" .
+        "Date: " . $testDriveDate . "\n" .
+        "Time: " . $testDriveTime . "\n" .
+        "Status: Pending";
+
+    sendWhatsAppMessage(
+        $adminPhone,
+        $adminMessage
+    );
+}
+
 
     /*
     |--------------------------------------------------------------------------
@@ -426,7 +488,7 @@ if (
         [
             'booking' => [
                 'id' =>
-                    (int)$pdo->lastInsertId(),
+                    $bookingId,
 
                 'carId' =>
                     $carId,
@@ -706,16 +768,25 @@ if (
     */
 
     $statement =
-        $pdo->prepare(
-            'SELECT
-                id,
-                status,
-                test_drive_date,
-                test_drive_time
-             FROM test_drive_bookings
-             WHERE id = ?
-             LIMIT 1'
-        );
+    $pdo->prepare(
+        'SELECT
+            t.id,
+            t.status,
+            t.name,
+            t.phone,
+            t.branch,
+            t.test_drive_date,
+            t.test_drive_time,
+            c.name AS car_name
+
+         FROM test_drive_bookings t
+
+         INNER JOIN cars c
+            ON c.id = t.car_id
+
+         WHERE t.id = ?
+         LIMIT 1'
+    );
 
     $statement->execute([
         $bookingId
@@ -855,6 +926,75 @@ if ($newStatus === 'completed') {
         $bookingId
     ]);
 
+    /*
+|--------------------------------------------------------------------------
+| WHATSAPP NOTIFICATION - CONFIRMED
+|--------------------------------------------------------------------------
+*/
+
+if ($newStatus === 'confirmed') {
+
+    $message =
+        "VELOCE Test Drive Confirmed ✅\n\n" .
+        "Hi " . $booking['name'] . ",\n\n" .
+        "Your test drive request has been confirmed.\n\n" .
+        "Car: " . $booking['car_name'] . "\n" .
+        "Branch: " . ucfirst($booking['branch']) . "\n" .
+        "Date: " . $booking['test_drive_date'] . "\n" .
+        "Time: " . $booking['test_drive_time'] . "\n\n" .
+        "We look forward to seeing you.";
+
+    sendWhatsAppMessage(
+        $booking['phone'],
+        $message
+    );
+}
+
+/*
+|--------------------------------------------------------------------------
+| WHATSAPP NOTIFICATION - CANCELLED
+|--------------------------------------------------------------------------
+*/
+
+if ($newStatus === 'cancelled') {
+
+    $message =
+        "VELOCE Test Drive Update\n\n" .
+        "Hi " . $booking['name'] . ",\n\n" .
+        "Unfortunately, your test drive request has been cancelled.\n\n" .
+        "Car: " . $booking['car_name'] . "\n" .
+        "Branch: " . ucfirst($booking['branch']) . "\n" .
+        "Date: " . $booking['test_drive_date'] . "\n" .
+        "Time: " . $booking['test_drive_time'] . "\n\n" .
+        "You can submit a new booking request at any time.";
+
+    sendWhatsAppMessage(
+        $booking['phone'],
+        $message
+    );
+}
+
+
+/*
+|--------------------------------------------------------------------------
+| WHATSAPP NOTIFICATION - COMPLETED
+|--------------------------------------------------------------------------
+*/
+
+if ($newStatus === 'completed') {
+
+    $message =
+        "VELOCE Test Drive Completed ✅\n\n" .
+        "Hi " . $booking['name'] . ",\n\n" .
+        "Your test drive has been completed successfully.\n\n" .
+        "Thank you for choosing VELOCE.\n" .
+        "We hope you enjoyed your driving experience.";
+
+    sendWhatsAppMessage(
+        $booking['phone'],
+        $message
+    );
+}
 
     /*
     |--------------------------------------------------------------------------
