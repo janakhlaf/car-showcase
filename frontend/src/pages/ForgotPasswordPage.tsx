@@ -1,11 +1,17 @@
 import { useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import axios from "axios";
-import { Loader2, Mail, ArrowLeft } from "lucide-react";
+import {
+  Loader2,
+  Mail,
+  ArrowLeft,
+  MessageCircle,
+} from "lucide-react";
 import { toast } from "sonner";
 
 export function ForgotPasswordPage() {
   const [email, setEmail] = useState("");
+  const [method, setMethod] = useState<"email" | "whatsapp">("email");
   const [loading, setLoading] = useState(false);
   const navigate = useNavigate();
 
@@ -21,12 +27,15 @@ export function ForgotPasswordPage() {
         "/api/auth/forgot-password",
         {
           email: email.trim(),
+          method,
         }
       );
 
       toast.success("Verification code sent", {
         description:
-          "Check your email for the 6-digit OTP code.",
+          method === "email"
+            ? "Check your email for the 6-digit OTP code."
+            : "Check your WhatsApp for the 6-digit OTP code.",
       });
       navigate(
         `/verify-otp?email=${encodeURIComponent(email.trim())}`
@@ -106,6 +115,44 @@ export function ForgotPasswordPage() {
               />
             </span>
           </label>
+
+          <div className="mt-5">
+            <span className="text-[11px] font-semibold tracking-[0.2em] text-zinc-500 uppercase">
+              Send code via
+            </span>
+
+            <div className="mt-2 grid grid-cols-2 gap-3">
+
+              <button
+                type="button"
+                disabled={loading}
+                onClick={() => setMethod("email")}
+                className={`flex items-center justify-center gap-2 rounded-xl border py-3 text-sm font-semibold transition-all ${
+                  method === "email"
+                    ? "border-champagne-400/60 bg-champagne-400/10 text-champagne-300"
+                    : "border-white/10 bg-obsidian-900/80 text-zinc-500 hover:border-white/20"
+                }`}
+              >
+                <Mail className="size-4" />
+                Email
+              </button>
+
+              <button
+                type="button"
+                disabled={loading}
+                onClick={() => setMethod("whatsapp")}
+                className={`flex items-center justify-center gap-2 rounded-xl border py-3 text-sm font-semibold transition-all ${
+                  method === "whatsapp"
+                    ? "border-champagne-400/60 bg-champagne-400/10 text-champagne-300"
+                    : "border-white/10 bg-obsidian-900/80 text-zinc-500 hover:border-white/20"
+                }`}
+              >
+                <MessageCircle className="size-4" />
+                WhatsApp
+              </button>
+
+            </div>
+          </div>
 
           <button
             type="submit"

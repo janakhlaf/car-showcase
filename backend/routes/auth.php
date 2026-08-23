@@ -184,6 +184,147 @@ if (
         $passwordHash
     ]);
 
+    /*
+|--------------------------------------------------------------------------
+| CREATE ACCOUNT VERIFICATION OTP
+|--------------------------------------------------------------------------
+*/
+
+$userId = (int)$pdo->lastInsertId();
+
+$otp = (string)random_int(
+    100000,
+    999999
+);
+
+$otpHash = password_hash(
+    $otp,
+    PASSWORD_DEFAULT
+);
+
+if ($otpHash === false) {
+    fail(
+        'Could not generate verification code',
+        500
+    );
+}
+
+$expiresAt =
+    (new DateTime())
+        ->modify('+5 minutes')
+        ->format('Y-m-d H:i:s');
+
+
+/*
+|--------------------------------------------------------------------------
+| STORE ACCOUNT VERIFICATION OTP
+|--------------------------------------------------------------------------
+*/
+
+$otpStatement = $pdo->prepare(
+    'INSERT INTO account_verification_otps
+    (
+        user_id,
+        otp_hash,
+        expires_at,
+        attempts,
+        verified_at,
+        used_at
+    )
+    VALUES
+    (
+        ?, ?, ?, 0, NULL, NULL
+    )'
+);
+
+$otpStatement->execute([
+    $userId,
+    $otpHash,
+    $expiresAt
+]);
+
+
+/*
+|--------------------------------------------------------------------------
+| SEND ACCOUNT VERIFICATION EMAIL
+|--------------------------------------------------------------------------
+*/
+
+$emailBody = '
+    <div style="
+        font-family: Arial, sans-serif;
+        max-width: 520px;
+        margin: 0 auto;
+        padding: 32px;
+        background: #111111;
+        color: #ffffff;
+        border-radius: 16px;
+    ">
+        <h2 style="
+            margin: 0 0 16px;
+            color: #d7b36a;
+        ">
+            VELOCE Account Verification
+        </h2>
+
+        <p style="
+            color: #cccccc;
+            line-height: 1.6;
+        ">
+            Hello ' .
+            htmlspecialchars(
+                $name,
+                ENT_QUOTES,
+                'UTF-8'
+            ) .
+            ',
+        </p>
+
+        <p style="
+            color: #cccccc;
+            line-height: 1.6;
+        ">
+            Use the verification code below to verify your VELOCE account:
+        </p>
+
+        <div style="
+            margin: 28px 0;
+            padding: 18px;
+            text-align: center;
+            font-size: 32px;
+            font-weight: bold;
+            letter-spacing: 8px;
+            background: #1c1c1c;
+            color: #d7b36a;
+            border-radius: 12px;
+        ">
+            ' . $otp . '
+        </div>
+
+        <p style="
+            color: #999999;
+            font-size: 13px;
+            line-height: 1.6;
+        ">
+            This code expires in 5 minutes.
+        </p>
+    </div>
+';
+
+$sent = sendEmail(
+    $email,
+    'VELOCE Account Verification Code',
+    $emailBody
+);
+
+if (!$sent) {
+    fail(
+        'Could not send account verification code',
+        500
+    );
+}
+    
+
 
     /*
     |--------------------------------------------------------------------------
@@ -192,24 +333,211 @@ if (
     */
 
     out(
-        [
-            'user' => [
-                'id' =>
-                    (int)$pdo->lastInsertId(),
+    [
+        'message' => 'Account created. Verification code sent to your email.',
 
-                'name' =>
-                    $name,
-
-                'email' =>
-                    $email,
-
-                'phone' =>
-                    $phone,
-            ]
+        'user' => [
+            'id' => $userId,
+            'name' => $name,
+            'email' => $email,
+            'phone' => $phone,
+            'is_verified' => 0,
         ],
-        201
-    );
+
+        'requiresVerification' => true
+    ],
+    201
+);
 }
+
+/*
+|--------------------------------------------------------------------------
+| VERIFY ACCOUNT EMAIL OTP
+|--------------------------------------------------------------------------
+*/
+
+if (
+    $route === 'auth/verify-account'
+    &&
+    $method === 'POST'
+) {
+    $b = body();
+
+    $email = strtolower(
+        trim(
+            (string)($b['email'] ?? '')
+        )
+    );
+
+    $otp = trim(
+        (string)($b['otp'] ?? '')
+    );
+
+    if (
+        $email === ''
+        ||
+        !filter_var(
+            $email,
+            FILTER_VALIDATE_EMAIL
+        )
+    ) {
+        fail(
+            'Valid email is required',
+            422
+        );
+    }
+
+    if (
+        strlen($otp) !== 6
+        ||
+        !ctype_digit($otp)
+    ) {
+        fail(
+            'Invalid verification code',
+            422
+        );
+    }
+
+    $userStatement = $pdo->prepare(
+        'SELECT
+            id,
+            is_verified
+         FROM users
+         WHERE email = ?
+         LIMIT 1'
+    );
+
+    $userStatement->execute([
+        $email
+    ]);
+
+    $user = $userStatement->fetch();
+
+    if (!$user) {
+        fail(
+            'Account not found',
+            404
+        );
+    }
+
+    if ((int)$user['is_verified'] === 1) {
+        out([
+            'message' =>
+                'Account is already verified'
+        ]);
+    }
+
+    $otpStatement = $pdo->prepare(
+        'SELECT
+            id,
+            otp_hash,
+            expires_at,
+            attempts,
+            used_at
+         FROM account_verification_otps
+         WHERE user_id = ?
+           AND used_at IS NULL
+         ORDER BY id DESC
+         LIMIT 1'
+    );
+
+    $otpStatement->execute([
+        (int)$user['id']
+    ]);
+
+    $otpRow = $otpStatement->fetch();
+
+    if (!$otpRow) {
+        fail(
+            'Invalid or expired verification code',
+            400
+        );
+    }
+
+    if (
+        strtotime($otpRow['expires_at'])
+        <= time()
+    ) {
+        fail(
+            'Verification code has expired',
+            400
+        );
+    }
+
+    if ((int)$otpRow['attempts'] >= 5) {
+        fail(
+            'Too many incorrect attempts. Request a new code.',
+            429
+        );
+    }
+
+    if (
+        !password_verify(
+            $otp,
+            $otpRow['otp_hash']
+        )
+    ) {
+        $attemptStatement =
+            $pdo->prepare(
+                'UPDATE account_verification_otps
+                 SET attempts = attempts + 1
+                 WHERE id = ?'
+            );
+
+        $attemptStatement->execute([
+            (int)$otpRow['id']
+        ]);
+
+        fail(
+            'Invalid verification code',
+            400
+        );
+    }
+
+    $pdo->beginTransaction();
+
+    try {
+        $verifyUserStatement =
+            $pdo->prepare(
+                'UPDATE users
+                 SET is_verified = 1
+                 WHERE id = ?'
+            );
+
+        $verifyUserStatement->execute([
+            (int)$user['id']
+        ]);
+
+        $verifyOtpStatement =
+            $pdo->prepare(
+                'UPDATE account_verification_otps
+                 SET
+                    verified_at = CURRENT_TIMESTAMP,
+                    used_at = CURRENT_TIMESTAMP
+                 WHERE id = ?'
+            );
+
+        $verifyOtpStatement->execute([
+            (int)$otpRow['id']
+        ]);
+
+        $pdo->commit();
+
+    } catch (Throwable $e) {
+        $pdo->rollBack();
+
+        fail(
+            'Could not verify account',
+            500
+        );
+    }
+
+    out([
+        'message' =>
+            'Account verified successfully'
+    ]);
+}
+
 /*
 |--------------------------------------------------------------------------
 | USER LOGIN
@@ -275,12 +603,13 @@ if (
 
     $statement = $pdo->prepare(
         'SELECT
-            id,
-            name,
-            email,
-            phone,
-            password_hash
-         FROM users
+    id,
+    name,
+    email,
+    phone,
+    password_hash,
+    is_verified
+ FROM users
          WHERE email = ?
          LIMIT 1'
     );
@@ -311,6 +640,12 @@ if (
             401
         );
     }
+    if ((int)$user['is_verified'] !== 1) {
+    fail(
+        'Please verify your email before signing in',
+        403
+    );
+}
 
 
     /*
@@ -408,6 +743,12 @@ if (
         )
     );
 
+    $methodChoice = strtolower(
+    trim(
+        (string)($b['method'] ?? 'email')
+    )
+);
+
 
     /*
     |--------------------------------------------------------------------------
@@ -429,6 +770,19 @@ if (
         );
     }
 
+    if (
+    !in_array(
+        $methodChoice,
+        ['email', 'whatsapp'],
+        true
+    )
+) {
+    fail(
+        'Invalid verification method',
+        422
+    );
+}
+
 
     /*
     |--------------------------------------------------------------------------
@@ -437,14 +791,15 @@ if (
     */
 
     $statement = $pdo->prepare(
-        'SELECT
-            id,
-            name,
-            email
-         FROM users
-         WHERE email = ?
-         LIMIT 1'
-    );
+    'SELECT
+        id,
+        name,
+        email,
+        phone
+     FROM users
+     WHERE email = ?
+     LIMIT 1'
+);
 
     $statement->execute([
         $email
@@ -633,25 +988,36 @@ if (
     ';
 
 
+    $sent = false;
+
+if ($methodChoice === 'email') {
+
     $sent = sendEmail(
         $user['email'],
         'VELOCE Password Reset Code',
         $emailBody
     );
 
+} else {
 
-    /*
-    |--------------------------------------------------------------------------
-    | EMAIL ERROR
-    |--------------------------------------------------------------------------
-    */
+    $whatsappMessage =
+        "VELOCE Password Reset\n\n" .
+        "Your verification code is: " .
+        $otp .
+        "\n\nThis code expires in 5 minutes.";
 
-    if (!$sent) {
-        fail(
-            'Could not send verification code',
-            500
-        );
-    }
+    $sent = sendWhatsAppMessage(
+        $user['phone'],
+        $whatsappMessage
+    );
+}
+
+if (!$sent) {
+    fail(
+        'Could not send verification code',
+        500
+    );
+}
 
 
     /*

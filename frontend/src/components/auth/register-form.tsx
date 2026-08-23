@@ -73,20 +73,20 @@ export function RegisterForm() {
         }
       );
 
-      toast.success("Account created", {
-        description:
-          "You can now sign in to your account.",
-      });
+      toast.success("Verification code sent", {
+  description:
+    "Check your email for the 6-digit verification code.",
+});
 
-      const redirect = searchParams.get("redirect");
+const redirect = searchParams.get("redirect");
 
-const loginUrl =
-  `/login?email=${encodeURIComponent(email.trim())}` +
+const verifyUrl =
+  `/verify-account?email=${encodeURIComponent(email.trim())}` +
   (redirect
     ? `&redirect=${encodeURIComponent(redirect)}`
     : "");
 
-navigate(loginUrl);
+navigate(verifyUrl);
     } catch (error) {
       const message =
         axios.isAxiosError(error)

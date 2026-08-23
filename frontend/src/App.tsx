@@ -29,6 +29,7 @@ import { ForgotPasswordPage } from "@/pages/ForgotPasswordPage";
 import { ProfilePage } from "@/pages/ProfilePage";
 import { BookTestDrivePage } from "@/pages/BookTestDrivePage";
 import { ResetPasswordPage } from "@/pages/ResetPasswordPage";
+import { VerifyAccountPage } from "@/pages/VerifyAccountPage";
 import {
   MyTestDrivesPage,
 } from "@/pages/MyTestDrivesPage";
@@ -60,6 +61,10 @@ export default function App() {
             <Route
               path="/register"
               element={<RegisterPage />}
+            />
+            <Route
+              path="/verify-account"
+              element={<VerifyAccountPage />}
             />
             <Route
                 path="/login"
