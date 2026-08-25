@@ -14,6 +14,7 @@ import { Link } from "react-router-dom";
 import { useNavigate } from "react-router-dom";
 import axios from "axios";
 import { adminApi } from "@/lib/admin-auth";
+import { userApi } from "@/lib/user-auth";
 import {
   ArrowLeft,
   Box,
@@ -34,12 +35,32 @@ const inputCls =
   "w-full rounded-xl border border-white/10 bg-obsidian-900/80 px-4 py-2.5 text-sm text-zinc-100 outline-none placeholder:text-zinc-600 focus:border-champagne-400/60";
 const labelCls = "text-[11px] font-semibold tracking-[0.2em] text-zinc-500 uppercase";
 
-async function uploadFiles(files: File[]): Promise<string[]> {
+async function uploadFiles(
+  files: File[],
+  ownerType: "admin" | "seller"
+): Promise<string[]> {
   const fd = new FormData();
-  files.forEach((f) => fd.append("files", f));
 
-  const res = await adminApi.post<{ data: { urls: string[] } }>(
-    "/api/upload",
+  files.forEach((file) => {
+    fd.append("files", file);
+  });
+
+  const api =
+    ownerType === "seller"
+      ? userApi
+      : adminApi;
+
+  const endpoint =
+    ownerType === "seller"
+      ? "/api/sellers/upload"
+      : "/api/upload";
+
+  const res = await api.post<{
+    data: {
+      urls: string[];
+    };
+  }>(
+    endpoint,
     fd
   );
 
@@ -61,10 +82,12 @@ export function CarForm({
   mode,
   initial,
   brands: initialBrands,
+  ownerType = "admin",
 }: {
   mode: "create" | "edit";
   initial?: CarWithBrand;
   brands: Brand[];
+  ownerType?: "admin" | "seller";
 }) {
   const navigate = useNavigate();
   const [brands, setBrands] = useState(initialBrands);
@@ -200,13 +223,23 @@ useEffect(() => {
     return;
   }
 
-  adminApi
-    .get(
-      `/api/car-variants?car_id=${initial.id}`
-    )
+  const api =
+    ownerType === "seller"
+      ? userApi
+      : adminApi;
+
+  const endpoint =
+    ownerType === "seller"
+      ? `/api/sellers/cars/${initial.id}`
+      : `/api/car-variants?car_id=${initial.id}`;
+
+  api
+    .get(endpoint)
     .then((response) => {
       const rows =
-        response.data.data ?? [];
+        ownerType === "seller"
+          ? response.data?.data?.variants ?? []
+          : response.data?.data ?? [];
 
       if (!rows.length) {
         return;
@@ -250,7 +283,11 @@ useEffect(() => {
         "Could not load vehicle colors"
       );
     });
-}, [mode, initial?.id]);
+}, [
+  mode,
+  initial?.id,
+  ownerType,
+]);
 
   async function addBrand() {
     const name = newBrand.trim();
@@ -476,9 +513,10 @@ function onVariantUpload(
         variant.thumbnailFile
       ) {
         const urls =
-          await uploadFiles([
-            variant.thumbnailFile,
-          ]);
+          await uploadFiles(
+            [variant.thumbnailFile],
+            ownerType
+          );
 
         thumbnailUrl =
           urls[0];
@@ -489,9 +527,10 @@ function onVariantUpload(
         variant.modelFile
       ) {
         const urls =
-          await uploadFiles([
-            variant.modelFile,
-          ]);
+          await uploadFiles(
+            [variant.modelFile],
+            ownerType
+          );
 
         modelUrl =
           urls[0];
@@ -529,7 +568,8 @@ function onVariantUpload(
     ) {
       const uploadedGallery =
         await uploadFiles(
-          galleryFiles
+          galleryFiles,
+          ownerType
         );
 
       finalImages = [
@@ -597,32 +637,60 @@ function onVariantUpload(
     };
 
 
-    if (
-      mode === "create"
-    ) {
-      await adminApi.post(
-        "/api/cars",
-        payload
-      );
+    if (ownerType === "seller") {
 
-      toast.success(
-        "Vehicle added to the collection"
-      );
+  if (mode === "create") {
 
-    } else {
+    await userApi.post(
+      "/api/sellers/cars",
+      payload
+    );
 
-      await adminApi.put(
-        `/api/cars/${initial!.id}`,
-        payload
-      );
+    toast.success(
+      "Vehicle submitted for review"
+    );
 
-      toast.success(
-        "Vehicle updated"
-      );
-    }
+  } else {
 
+    await userApi.put(
+      `/api/sellers/cars/${initial!.id}`,
+      payload
+    );
 
-    navigate("/admin");
+    toast.success(
+      "Vehicle updated and submitted for review"
+    );
+  }
+
+  navigate("/seller");
+
+} else {
+
+  if (mode === "create") {
+
+    await adminApi.post(
+      "/api/cars",
+      payload
+    );
+
+    toast.success(
+      "Vehicle added to the collection"
+    );
+
+  } else {
+
+    await adminApi.put(
+      `/api/cars/${initial!.id}`,
+      payload
+    );
+
+    toast.success(
+      "Vehicle updated"
+    );
+  }
+
+  navigate("/admin");
+}
 
   } catch (error) {
 
@@ -669,11 +737,19 @@ function onVariantUpload(
   return (
     <form onSubmit={onSubmit} className="mx-auto max-w-5xl px-5 pt-28 pb-16 lg:px-8">
       <Link
-        to="/admin"
-        className="inline-flex items-center gap-2 text-xs font-semibold tracking-[0.2em] text-zinc-500 uppercase transition-colors hover:text-champagne-300"
-      >
-        <ArrowLeft className="size-3.5" /> Dashboard
-      </Link>
+          to={
+            ownerType === "seller"
+              ? "/seller"
+              : "/admin"
+          }
+          className="inline-flex items-center gap-2 text-xs font-semibold tracking-[0.2em] text-zinc-500 uppercase transition-colors hover:text-champagne-300"
+        >
+          <ArrowLeft className="size-3.5" />
+
+          {ownerType === "seller"
+            ? "Seller Dashboard"
+            : "Dashboard"}
+        </Link>
       <div className="mt-4 flex flex-wrap items-end justify-between gap-4">
         <h1 className="font-display text-4xl font-bold tracking-tight">
           {mode === "create" ? "Add a vehicle" : `Edit ${initial?.name ?? "vehicle"}`}
@@ -684,7 +760,15 @@ function onVariantUpload(
           className="inline-flex items-center gap-2 rounded-full bg-champagne-400 px-7 py-3 text-sm font-bold tracking-[0.12em] text-obsidian-950 uppercase transition-colors hover:bg-champagne-300 disabled:opacity-60"
         >
           {saving ? <Loader2 className="size-4 animate-spin" /> : <Save className="size-4" />}
-          {saving ? "Saving…" : mode === "create" ? "Add to collection" : "Save changes"}
+          {saving
+          ? "Saving…"
+          : ownerType === "seller"
+            ? mode === "create"
+              ? "Submit for review"
+              : "Save & resubmit"
+            : mode === "create"
+              ? "Add to collection"
+              : "Save changes"}
         </button>
       </div>
 
@@ -740,29 +824,48 @@ function onVariantUpload(
             <input required type="number" min={1000} value={form.price} onChange={(e) => set("price", Number(e.target.value))} className={cn(inputCls, "mt-2")} />
           </label>
 
-          <label className="flex cursor-pointer items-center gap-3 self-end pb-1 select-none">
+          {ownerType === "admin" && (
+         <label className="flex cursor-pointer items-center gap-3 self-end pb-1 select-none">
             <button
               type="button"
               role="switch"
               aria-checked={form.featured}
-              onClick={() => set("featured", !form.featured)}
+              onClick={() =>
+                set(
+                  "featured",
+                  !form.featured
+                )
+              }
               className={cn(
                 "relative h-6 w-11 rounded-full border transition-colors",
-                form.featured ? "border-champagne-400 bg-champagne-400/30" : "border-white/15 bg-white/5",
+                form.featured
+                  ? "border-champagne-400 bg-champagne-400/30"
+                  : "border-white/15 bg-white/5"
               )}
             >
               <span
                 className={cn(
                   "absolute top-0.5 size-4.5 rounded-full transition-all",
-                  form.featured ? "left-[22px] bg-champagne-300" : "left-1 bg-zinc-500",
+                  form.featured
+                    ? "left-[22px] bg-champagne-300"
+                    : "left-1 bg-zinc-500"
                 )}
               />
             </button>
+
             <span className="flex items-center gap-1.5 text-sm text-zinc-300">
-              <Star className={cn("size-4", form.featured && "fill-champagne-400 text-champagne-400")} />
+              <Star
+                className={cn(
+                  "size-4",
+                  form.featured &&
+                    "fill-champagne-400 text-champagne-400"
+                )}
+              />
+
               Feature on the homepage
             </span>
           </label>
+        )}
         </div>
       </section>
 
@@ -1157,18 +1260,30 @@ function onVariantUpload(
 
       <div className="mt-8 flex justify-end gap-3">
         <Link
-          to="/admin"
-          className="rounded-full border border-white/10 px-6 py-3 text-sm font-semibold text-zinc-300 transition-colors hover:border-white/30"
-        >
-          Cancel
-        </Link>
+            to={
+              ownerType === "seller"
+                ? "/seller"
+                : "/admin"
+            }
+            className="rounded-xl border border-white/10 px-5 py-3 text-sm font-semibold text-zinc-400 transition-colors hover:border-white/20 hover:text-zinc-200"
+          >
+            Cancel
+          </Link>
         <button
           type="submit"
           disabled={saving}
           className="inline-flex items-center gap-2 rounded-full bg-champagne-400 px-8 py-3 text-sm font-bold tracking-[0.12em] text-obsidian-950 uppercase transition-colors hover:bg-champagne-300 disabled:opacity-60"
         >
           {saving && <Loader2 className="size-4 animate-spin" />}
-          {mode === "create" ? "Add to collection" : "Save changes"}
+          {saving
+  ? "Saving…"
+  : ownerType === "seller"
+    ? mode === "create"
+      ? "Submit for review"
+      : "Save & resubmit"
+    : mode === "create"
+      ? "Add to collection"
+      : "Save changes"}
         </button>
       </div>
     </form>

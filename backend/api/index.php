@@ -19,6 +19,7 @@ require_once __DIR__ . '/../helpers/mailer.php';
 require_once __DIR__ . '/../helpers/whatsapp.php';
 
 
+
 header('Content-Type: application/json; charset=utf-8');
 
 
@@ -401,6 +402,7 @@ require_once __DIR__ . '/../routes/admin-roles.php';
 require_once __DIR__ . '/../routes/site-settings.php';
 require_once __DIR__ . '/../routes/auth.php';
 require_once __DIR__ . '/../routes/test-drives.php';
+require_once __DIR__ . '/../routes/sellers.php';
 
 
 /* =========================================================
@@ -1633,9 +1635,11 @@ if (
     &&
     $method === 'GET'
 ) {
-    $where = [];
+    $where = [
+    "c.approval_status = 'approved'"
+        ];
 
-    $args = [];
+        $args = [];
 
 
     if (
@@ -2038,22 +2042,22 @@ if (
 
                 LEFT JOIN car_variants v
 
-                    ON v.car_id = c.id
+    ON v.car_id = c.id
 
-                    AND v.is_default = 1
+    AND v.is_default = 1
 
+WHERE c.id = ?
+AND c.approval_status = ?
 
-                WHERE c.id = ?
-
-
-                LIMIT 1
-                '
+LIMIT 1
+'
             );
 
 
         $statement->execute([
-            $id
-        ]);
+    $id,
+    'approved'
+]);
 
 
         $row =

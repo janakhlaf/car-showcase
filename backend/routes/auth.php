@@ -1525,17 +1525,18 @@ try {
     */
 
     $statement = $pdo->prepare(
-        'SELECT
-            id,
-            name,
-            email,
-            phone,
-            created_at,
-            updated_at
-         FROM users
-         WHERE id = ?
-         LIMIT 1'
-    );
+    'SELECT
+        id,
+        name,
+        email,
+        phone,
+        seller_status,
+        created_at,
+        updated_at
+     FROM users
+     WHERE id = ?
+     LIMIT 1'
+);
 
     $statement->execute([
         $userId
@@ -1559,26 +1560,29 @@ try {
     */
 
     out([
-        'user' => [
-            'id' =>
-                (int)$user['id'],
+    'user' => [
+        'id' =>
+            (int)$user['id'],
 
-            'name' =>
-                $user['name'],
+        'name' =>
+            $user['name'],
 
-            'email' =>
-                $user['email'],
+        'email' =>
+            $user['email'],
 
-            'phone' =>
-                $user['phone'],
+        'phone' =>
+            $user['phone'],
 
-            'createdAt' =>
-                $user['created_at'],
+        'sellerStatus' =>
+            $user['seller_status'],
 
-            'updatedAt' =>
-                $user['updated_at'],
-        ]
-    ]);
+        'createdAt' =>
+            $user['created_at'],
+
+        'updatedAt' =>
+            $user['updated_at'],
+    ]
+]);
 }
 /*
 |--------------------------------------------------------------------------

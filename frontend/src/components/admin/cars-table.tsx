@@ -23,6 +23,7 @@ import {
   Search,
   ShieldCheck,
   Star,
+  Store,
   Trash2,
   TriangleAlert,
   Users,
@@ -160,6 +161,18 @@ export function CarsTable({
   >
     <CalendarDays className="size-4" />
     Test Drive Bookings
+  </Link>
+)}
+{(
+  adminRole === "super_admin" ||
+  adminPermissions.includes("sellers.manage")
+) && (
+  <Link
+    to="/admin/seller-requests"
+    className="inline-flex items-center gap-2 rounded-full border border-white/10 px-5 py-3 text-xs font-semibold tracking-[0.14em] text-zinc-300 uppercase transition-colors hover:border-champagne-400/40 hover:text-champagne-300"
+  >
+    <Store className="size-4" />
+    Seller Requests
   </Link>
 )}
 

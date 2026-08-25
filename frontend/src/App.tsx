@@ -8,6 +8,8 @@ import { CarsPage } from "@/pages/CarsPage";
 import { CarDetailPage } from "@/pages/CarDetailPage";
 import { ChangePasswordPage } from "@/components/admin/change-password-page";
 import { VerifyOtpPage } from "./pages/VerifyOtpPage";
+import { SellerDashboardPage } from "@/pages/SellerDashboardPage";
+import { SellerNewCarPage } from "@/pages/SellerCarPages";
 
 import {
   AdminPage,
@@ -15,6 +17,7 @@ import {
   NewCarPage,
   EditCarPage,
   AdminTestDrivesPage,
+  AdminSellerRequestsPage,
 
 } from "@/pages/AdminPages";
 import { AdminUserForm } from "@/components/admin/admin-user-form";
@@ -103,6 +106,18 @@ export default function App() {
             <Route
               path="/admin/test-drives"
               element={<AdminTestDrivesPage />}
+            />
+            <Route
+              path="/admin/seller-requests"
+              element={<AdminSellerRequestsPage />}
+            />
+            <Route
+              path="/seller"
+              element={<SellerDashboardPage />}
+            />
+            <Route
+              path="/seller/cars/new"
+              element={<SellerNewCarPage />}
             />
 
             <Route path="/admin/profile" element={<AdminProfilePage/>}/>

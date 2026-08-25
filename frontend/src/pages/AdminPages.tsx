@@ -1,5 +1,14 @@
 import { adminApi } from "@/lib/admin-auth";
-import { Eye, CalendarDays, Clock3, MapPin, CarFront } from "lucide-react";
+import {
+  Eye,
+  CalendarDays,
+  Clock3,
+  MapPin,
+  CarFront,
+  Store,
+  CheckCircle2,
+  XCircle,
+} from "lucide-react";
 import {useEffect,useState} from 'react'; import {useNavigate,useParams} from 'react-router-dom'; import axios from 'axios'; import type {Brand,CarWithBrand} from '@/db/schema'; import {CarsTable} from '@/components/admin/cars-table'; import {CarForm} from '@/components/admin/car-form'; import {LoginForm} from '@/components/admin/login-form';
 export function AdminLoginPage(){return <div className="mx-auto flex min-h-screen max-w-md items-center px-5"><LoginForm/></div>}
 function useAdminData() {
@@ -571,6 +580,492 @@ export function AdminTestDrivesPage() {
             </div>
 
           </div>
+        </div>
+      )}
+
+    </main>
+  );
+}
+type SellerRequest = {
+  id: number;
+  userId: number;
+  name: string;
+  email: string;
+  phone: string;
+  status: "pending" | "approved" | "rejected";
+  sellerStatus: "none" | "pending" | "approved" | "rejected";
+  submittedAt: string;
+  reviewedAt: string | null;
+  reviewedBy: number | null;
+  rejectionReason: string | null;
+};
+
+export function AdminSellerRequestsPage() {
+  const navigate = useNavigate();
+
+  const [requests, setRequests] = useState<SellerRequest[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState("");
+  const [updatingId, setUpdatingId] = useState<number | null>(null);
+
+  const [rejectingRequest, setRejectingRequest] =
+    useState<SellerRequest | null>(null);
+
+  const [rejectionReason, setRejectionReason] =
+    useState("");
+
+  const loadRequests = async () => {
+    try {
+      setLoading(true);
+      setError("");
+
+      const response = await adminApi.get(
+        "/api/admin/seller-requests"
+      );
+
+      const result =
+        response.data.data ??
+        response.data ??
+        [];
+
+      setRequests(
+        Array.isArray(result)
+          ? result
+          : []
+      );
+
+    } catch (error) {
+      console.error(
+        "SELLER REQUESTS ERROR:",
+        error
+      );
+
+      if (axios.isAxiosError(error)) {
+
+        if (error.response?.status === 401) {
+          navigate("/admin/login");
+          return;
+        }
+
+        if (error.response?.status === 403) {
+          setError(
+            "You do not have permission to manage seller requests."
+          );
+          return;
+        }
+
+        setError(
+          error.response?.data?.error ??
+          error.response?.data?.message ??
+          "Unable to load seller requests."
+        );
+
+      } else {
+        setError(
+          "Unable to load seller requests."
+        );
+      }
+
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    loadRequests();
+  }, []);
+
+  const approveRequest = async (
+    requestId: number
+  ) => {
+    try {
+      setUpdatingId(requestId);
+      setError("");
+
+      await adminApi.patch(
+        `/api/admin/seller-requests/${requestId}/approve`
+      );
+
+      setRequests((current) =>
+        current.map((request) =>
+          request.id === requestId
+            ? {
+                ...request,
+                status: "approved",
+                sellerStatus: "approved",
+                reviewedAt:
+                  new Date().toISOString(),
+              }
+            : request
+        )
+      );
+
+    } catch (error) {
+      console.error(
+        "APPROVE SELLER ERROR:",
+        error
+      );
+
+      if (axios.isAxiosError(error)) {
+        setError(
+          error.response?.data?.error ??
+          error.response?.data?.message ??
+          "Unable to approve seller request."
+        );
+      }
+
+    } finally {
+      setUpdatingId(null);
+    }
+  };
+
+  const rejectRequest = async () => {
+    if (!rejectingRequest) return;
+
+    const reason =
+      rejectionReason.trim();
+
+    if (!reason) {
+      setError(
+        "Please enter a rejection reason."
+      );
+      return;
+    }
+
+    try {
+      setUpdatingId(
+        rejectingRequest.id
+      );
+
+      setError("");
+
+      await adminApi.patch(
+        `/api/admin/seller-requests/${rejectingRequest.id}/reject`,
+        {
+          reason,
+        }
+      );
+
+      setRequests((current) =>
+        current.map((request) =>
+          request.id === rejectingRequest.id
+            ? {
+                ...request,
+                status: "rejected",
+                sellerStatus: "rejected",
+                rejectionReason: reason,
+                reviewedAt:
+                  new Date().toISOString(),
+              }
+            : request
+        )
+      );
+
+      setRejectingRequest(null);
+      setRejectionReason("");
+
+    } catch (error) {
+      console.error(
+        "REJECT SELLER ERROR:",
+        error
+      );
+
+      if (axios.isAxiosError(error)) {
+        setError(
+          error.response?.data?.error ??
+          error.response?.data?.message ??
+          "Unable to reject seller request."
+        );
+      }
+
+    } finally {
+      setUpdatingId(null);
+    }
+  };
+
+  const formatDateTime = (
+    value: string | null
+  ) => {
+    if (!value) return "—";
+
+    return new Date(value).toLocaleString(
+      "en-US",
+      {
+        month: "short",
+        day: "numeric",
+        year: "numeric",
+        hour: "numeric",
+        minute: "2-digit",
+      }
+    );
+  };
+
+  if (loading) {
+    return (
+      <div className="min-h-screen pt-40 text-center text-white">
+        Loading seller requests...
+      </div>
+    );
+  }
+
+  return (
+    <main className="min-h-screen px-5 pb-20 pt-28">
+
+      <div className="mx-auto max-w-7xl">
+
+        {/* HEADER */}
+
+        <div className="mb-10">
+          <p className="mb-3 text-xs font-semibold uppercase tracking-[0.35em] text-[#d7b36a]">
+            Admin Studio
+          </p>
+
+          <h1 className="text-4xl font-semibold text-white">
+            Seller Requests
+          </h1>
+
+          <p className="mt-3 text-sm text-white/45">
+            Review users requesting permission
+            to sell vehicles on VELOCE.
+          </p>
+        </div>
+
+        {/* ERROR */}
+
+        {error && (
+          <div className="mb-6 rounded-xl border border-red-500/20 bg-red-500/10 p-4 text-sm text-red-300">
+            {error}
+          </div>
+        )}
+
+        {/* EMPTY */}
+
+        {!error &&
+          requests.length === 0 && (
+            <div className="rounded-2xl border border-white/10 bg-white/[0.02] px-6 py-16 text-center">
+
+              <Store className="mx-auto mb-4 h-8 w-8 text-white/30" />
+
+              <p className="text-white">
+                No seller requests yet.
+              </p>
+
+              <p className="mt-2 text-sm text-white/40">
+                New seller applications will
+                appear here.
+              </p>
+
+            </div>
+          )}
+
+        {/* REQUESTS TABLE */}
+
+        {requests.length > 0 && (
+          <div className="overflow-hidden rounded-2xl border border-white/10 bg-white/[0.02]">
+
+            <div className="hidden grid-cols-[1.4fr_1.5fr_1fr_1fr_1fr_1.2fr] gap-4 border-b border-white/10 px-6 py-4 text-[10px] font-semibold uppercase tracking-[0.2em] text-white/35 lg:grid">
+
+              <span>Seller</span>
+              <span>Email</span>
+              <span>Phone</span>
+              <span>Submitted</span>
+              <span>Status</span>
+              <span>Actions</span>
+
+            </div>
+
+            {requests.map((request) => (
+
+              <div
+                key={request.id}
+                className="grid gap-5 border-b border-white/10 px-6 py-5 last:border-b-0 lg:grid-cols-[1.4fr_1.5fr_1fr_1fr_1fr_1.2fr] lg:items-center"
+              >
+
+                {/* SELLER */}
+
+                <div>
+                  <p className="font-medium text-white">
+                    {request.name}
+                  </p>
+
+                  <p className="mt-1 text-xs text-white/35">
+                    User #{request.userId}
+                  </p>
+                </div>
+
+                {/* EMAIL */}
+
+                <p className="text-sm text-white/60">
+                  {request.email}
+                </p>
+
+                {/* PHONE */}
+
+                <p className="text-sm text-white/60">
+                  {request.phone || "—"}
+                </p>
+
+                {/* DATE */}
+
+                <p className="text-sm text-white/60">
+                  {formatDateTime(
+                    request.submittedAt
+                  )}
+                </p>
+
+                {/* STATUS */}
+
+                <div>
+                  <span
+                    className={`inline-flex rounded-full border px-3 py-1 text-[10px] font-semibold uppercase tracking-wider ${
+                      request.status === "approved"
+                        ? "border-emerald-500/25 bg-emerald-500/10 text-emerald-300"
+                        : request.status === "rejected"
+                        ? "border-red-500/25 bg-red-500/10 text-red-300"
+                        : "border-[#d7b36a]/25 bg-[#d7b36a]/10 text-[#d7b36a]"
+                    }`}
+                  >
+                    {request.status}
+                  </span>
+                </div>
+
+                {/* ACTIONS */}
+
+                <div className="flex flex-wrap gap-2">
+
+                  {request.status ===
+                    "pending" && (
+                    <>
+                      <button
+                        type="button"
+                        disabled={
+                          updatingId ===
+                          request.id
+                        }
+                        onClick={() =>
+                          approveRequest(
+                            request.id
+                          )
+                        }
+                        className="inline-flex items-center gap-2 rounded-full bg-emerald-500 px-4 py-2 text-[10px] font-bold uppercase tracking-[0.12em] text-black disabled:opacity-50"
+                      >
+                        <CheckCircle2 className="h-3.5 w-3.5" />
+                        Approve
+                      </button>
+
+                      <button
+                        type="button"
+                        disabled={
+                          updatingId ===
+                          request.id
+                        }
+                        onClick={() => {
+                          setError("");
+                          setRejectingRequest(
+                            request
+                          );
+                          setRejectionReason("");
+                        }}
+                        className="inline-flex items-center gap-2 rounded-full border border-red-500/30 bg-red-500/10 px-4 py-2 text-[10px] font-bold uppercase tracking-[0.12em] text-red-300 disabled:opacity-50"
+                      >
+                        <XCircle className="h-3.5 w-3.5" />
+                        Reject
+                      </button>
+                    </>
+                  )}
+
+                  {request.status !==
+                    "pending" && (
+                    <span className="text-xs text-white/35">
+                      Reviewed
+                    </span>
+                  )}
+
+                </div>
+
+              </div>
+            ))}
+
+          </div>
+        )}
+
+      </div>
+
+      {/* REJECT MODAL */}
+
+      {rejectingRequest && (
+
+        <div
+          className="fixed inset-0 z-[100] flex items-center justify-center bg-black/70 px-5 backdrop-blur-sm"
+          onClick={() =>
+            setRejectingRequest(null)
+          }
+        >
+
+          <div
+            className="w-full max-w-lg rounded-3xl border border-white/10 bg-[#0d0d0f] p-7"
+            onClick={(e) =>
+              e.stopPropagation()
+            }
+          >
+
+            <p className="text-[10px] font-semibold uppercase tracking-[0.22em] text-red-300">
+              Reject Seller
+            </p>
+
+            <h2 className="mt-2 text-2xl font-semibold text-white">
+              Reject {rejectingRequest.name}?
+            </h2>
+
+            <p className="mt-3 text-sm leading-6 text-white/45">
+              Enter the reason for rejecting
+              this seller application.
+            </p>
+
+            <textarea
+              value={rejectionReason}
+              onChange={(e) =>
+                setRejectionReason(
+                  e.target.value
+                )
+              }
+              placeholder="Reason for rejection..."
+              rows={4}
+              className="mt-6 w-full resize-none rounded-xl border border-white/10 bg-white/[0.03] px-4 py-3 text-sm text-white outline-none placeholder:text-white/25 focus:border-red-500/40"
+            />
+
+            <div className="mt-6 flex justify-end gap-3">
+
+              <button
+                type="button"
+                onClick={() => {
+                  setRejectingRequest(null);
+                  setRejectionReason("");
+                }}
+                className="rounded-full border border-white/10 px-5 py-2.5 text-xs font-semibold text-white/60"
+              >
+                Cancel
+              </button>
+
+              <button
+                type="button"
+                disabled={
+                  updatingId ===
+                  rejectingRequest.id
+                }
+                onClick={rejectRequest}
+                className="rounded-full bg-red-500 px-5 py-2.5 text-xs font-bold uppercase tracking-[0.12em] text-white disabled:opacity-50"
+              >
+                {updatingId ===
+                rejectingRequest.id
+                  ? "Rejecting..."
+                  : "Reject Seller"}
+              </button>
+
+            </div>
+
+          </div>
+
         </div>
       )}
 
