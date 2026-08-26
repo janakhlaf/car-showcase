@@ -25,6 +25,7 @@ import {
 type TestDriveBooking = {
   id: number;
   carId: number;
+  sellerId: number | null;
   carName: string;
   carYear: number;
   brandName: string;
@@ -362,16 +363,18 @@ export function MyTestDrivesPage() {
 
                   <div className="grid flex-1 gap-4 sm:grid-cols-3 md:max-w-xl">
 
-                    <div>
-                      <p className="flex items-center gap-1.5 text-[10px] font-semibold tracking-[0.16em] text-zinc-600 uppercase">
-                        <MapPin className="size-3.5" />
-                        Branch
-                      </p>
+                    {!booking.sellerId && (
+  <div>
+    <p className="flex items-center gap-1.5 text-[10px] font-semibold tracking-[0.16em] text-zinc-600 uppercase">
+      <MapPin className="size-3.5" />
+      Branch
+    </p>
 
-                      <p className="mt-2 text-sm font-medium capitalize text-zinc-300">
-                        {booking.branch}
-                      </p>
-                    </div>
+    <p className="mt-2 text-sm font-medium capitalize text-zinc-300">
+      {booking.branch}
+    </p>
+  </div>
+)}
 
 
                     <div>

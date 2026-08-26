@@ -201,9 +201,17 @@ const [submittingSellerRequest, setSubmittingSellerRequest] =
                 {profile.name}
               </h2>
 
-              <p className="mt-1 text-sm text-zinc-500">
-                Customer account
-              </p>
+              <div className="mt-2">
+  {sellerStatus === "approved" ? (
+    <span className="inline-flex rounded-full border border-champagne-400/30 bg-champagne-400/10 px-3 py-1 text-[10px] font-bold uppercase tracking-[0.16em] text-champagne-300">
+      Verified Seller
+    </span>
+  ) : (
+    <span className="inline-flex rounded-full border border-white/10 bg-white/[0.04] px-3 py-1 text-[10px] font-bold uppercase tracking-[0.16em] text-zinc-400">
+      Customer
+    </span>
+  )}
+</div>
             </div>
           </div>
 
@@ -263,69 +271,105 @@ const [submittingSellerRequest, setSubmittingSellerRequest] =
 
     <div className="flex-1">
 
-      <p className="text-[11px] font-semibold uppercase tracking-[0.2em] text-champagne-400">
-        Seller Access
-      </p>
+      {/* APPROVED SELLER */}
+      {sellerStatus === "approved" ? (
+        <>
+          <p className="text-[11px] font-semibold uppercase tracking-[0.2em] text-champagne-400">
+            Seller Studio
+          </p>
 
-      <h2 className="mt-2 font-display text-xl font-semibold text-white">
-        Become a Seller
-      </h2>
+          <h2 className="mt-2 font-display text-xl font-semibold text-white">
+            Manage Your Vehicles
+          </h2>
 
-      <p className="mt-2 max-w-xl text-sm leading-6 text-zinc-500">
-        Apply for permission to list and sell your own vehicles on VELOCE.
-      </p>
+          <p className="mt-2 max-w-xl text-sm leading-6 text-zinc-500">
+            Manage your vehicle listings, test drive availability,
+            customer requests, and seller activity.
+          </p>
 
-      <div className="mt-6">
-
-        {sellerStatus === "none" && (
-          <button
-            type="button"
-            disabled={submittingSellerRequest}
-            onClick={becomeSeller}
-            className="rounded-full bg-champagne-400 px-6 py-3 text-xs font-bold uppercase tracking-[0.14em] text-obsidian-950 transition hover:bg-champagne-300 disabled:cursor-not-allowed disabled:opacity-50"
-          >
-            {submittingSellerRequest
-              ? "Submitting..."
-              : "Become a Seller"}
-          </button>
-        )}
-
-        {sellerStatus === "pending" && (
-          <div className="inline-flex rounded-full border border-champagne-400/25 bg-champagne-400/10 px-5 py-3 text-xs font-semibold uppercase tracking-[0.14em] text-champagne-300">
-            Seller Request Pending
-          </div>
-        )}
-
-        {sellerStatus === "approved" && (
-          <div className="inline-flex rounded-full border border-emerald-500/25 bg-emerald-500/10 px-5 py-3 text-xs font-semibold uppercase tracking-[0.14em] text-emerald-300">
-            Seller Account Approved
-          </div>
-        )}
-
-        {sellerStatus === "rejected" && (
-          <div className="flex flex-wrap items-center gap-3">
-
-            <div className="rounded-full border border-red-500/25 bg-red-500/10 px-5 py-3 text-xs font-semibold uppercase tracking-[0.14em] text-red-300">
-              Seller Request Rejected
-            </div>
+          <div className="mt-6 flex flex-wrap items-center gap-3">
 
             <button
               type="button"
-              disabled={submittingSellerRequest}
-              onClick={becomeSeller}
-              className="rounded-full border border-white/10 px-5 py-3 text-xs font-semibold uppercase tracking-[0.14em] text-zinc-300 transition hover:border-champagne-400/40 hover:text-champagne-300 disabled:opacity-50"
+              onClick={() => navigate("/seller")}
+              className="rounded-full bg-champagne-400 px-6 py-3 text-xs font-bold uppercase tracking-[0.14em] text-obsidian-950 transition hover:bg-champagne-300"
             >
-              Apply Again
+              Open Seller Studio
             </button>
 
-          </div>
-        )}
+            <div className="rounded-full border border-emerald-500/25 bg-emerald-500/10 px-5 py-3 text-xs font-semibold uppercase tracking-[0.14em] text-emerald-300">
+              Verified Seller
+            </div>
 
-      </div>
+          </div>
+        </>
+      ) : (
+        <>
+          {/* CUSTOMER / SELLER APPLICATION */}
+
+          <p className="text-[11px] font-semibold uppercase tracking-[0.2em] text-champagne-400">
+            Seller Access
+          </p>
+
+          <h2 className="mt-2 font-display text-xl font-semibold text-white">
+            Become a Seller
+          </h2>
+
+          <p className="mt-2 max-w-xl text-sm leading-6 text-zinc-500">
+            Apply for permission to list and sell your own vehicles on VELOCE.
+          </p>
+
+          <div className="mt-6">
+
+            {sellerStatus === "none" && (
+              <button
+                type="button"
+                disabled={submittingSellerRequest}
+                onClick={becomeSeller}
+                className="rounded-full bg-champagne-400 px-6 py-3 text-xs font-bold uppercase tracking-[0.14em] text-obsidian-950 transition hover:bg-champagne-300 disabled:cursor-not-allowed disabled:opacity-50"
+              >
+                {submittingSellerRequest
+                  ? "Submitting..."
+                  : "Become a Seller"}
+              </button>
+            )}
+
+            {sellerStatus === "pending" && (
+              <div className="inline-flex rounded-full border border-champagne-400/25 bg-champagne-400/10 px-5 py-3 text-xs font-semibold uppercase tracking-[0.14em] text-champagne-300">
+                Seller Request Pending
+              </div>
+            )}
+
+            {sellerStatus === "rejected" && (
+              <div className="flex flex-wrap items-center gap-3">
+
+                <div className="rounded-full border border-red-500/25 bg-red-500/10 px-5 py-3 text-xs font-semibold uppercase tracking-[0.14em] text-red-300">
+                  Seller Request Rejected
+                </div>
+
+                <button
+                  type="button"
+                  disabled={submittingSellerRequest}
+                  onClick={becomeSeller}
+                  className="rounded-full border border-white/10 px-5 py-3 text-xs font-semibold uppercase tracking-[0.14em] text-zinc-300 transition hover:border-champagne-400/40 hover:text-champagne-300 disabled:opacity-50"
+                >
+                  {submittingSellerRequest
+                    ? "Submitting..."
+                    : "Apply Again"}
+                </button>
+
+              </div>
+            )}
+
+          </div>
+        </>
+      )}
+
     </div>
   </div>
 </div>
-      </div>
+</div>
+      
     </section>
   );
 }

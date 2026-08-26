@@ -9,6 +9,7 @@ import { useEffect, useMemo, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { ModelViewer } from "@/components/three/model-viewer";
 import { AnimatePresence, motion } from "framer-motion";
+import { userApi } from "@/lib/user-auth";
 import {
   ArrowLeft,
   ArrowUpRight,
@@ -140,10 +141,48 @@ export function CarDetail({
     return () => window.removeEventListener("keydown", onKey);
   }, [lightbox, gallery.length]);
 
-  const enquire = () =>
-    toast.success("Request received", {
-      description: `Our concierge will contact you about the ${car.year} ${car.brandName} ${car.name}.`,
-    });
+  const messageSeller = async () => {
+  try {
+    const response = await userApi.post(
+      `/api/messages/car/${car.id}`
+    );
+
+    const conversationId =
+      response.data?.data?.conversationId;
+
+    if (!conversationId) {
+      throw new Error(
+        "Conversation could not be created."
+      );
+    }
+
+    navigate(`/messages/${conversationId}`);
+
+  } catch (error: any) {
+    console.error(
+      "MESSAGE SELLER ERROR:",
+      error
+    );
+
+    if (error?.response?.status === 401) {
+      toast.error(
+        "Your session has expired. Please sign in again."
+      );
+
+      navigate(
+        `/login?redirect=/cars/${car.id}`
+      );
+
+      return;
+    }
+
+    toast.error(
+      error?.response?.data?.error ??
+      error?.message ??
+      "Could not start conversation."
+    );
+  }
+};
 
   const share = async () => {
     try {
@@ -307,14 +346,16 @@ export function CarDetail({
     <ArrowUpRight className="size-4 transition-transform duration-300 group-hover:rotate-45" />
   </Link>
 
+  {car.sellerId && (
   <button
     type="button"
-    onClick={enquire}
+    onClick={messageSeller}
     className="group flex w-full items-center justify-center gap-2 rounded-full border border-champagne-400/40 px-6 py-3.5 text-sm font-bold tracking-[0.14em] text-champagne-300 uppercase transition-all hover:bg-champagne-400/10"
   >
-    Enquire Now
+    Message Seller
     <ArrowUpRight className="size-4 transition-transform duration-300 group-hover:rotate-45" />
   </button>
+)}
 
 </div>
             <button

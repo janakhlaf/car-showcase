@@ -305,55 +305,46 @@ export function SellerDashboardPage() {
   */
 
   async function deleteVehicle(
-    car: SellerCar
-  ) {
+  car: SellerCar
+) {
+  try {
+    setDeletingId(
+      car.id
+    );
 
-    const confirmed =
-      window.confirm(
-        `Delete "${car.name}"? This will also remove its uploaded images and 3D files.`
-      );
+    await userApi.delete(
+      `/api/sellers/cars/${car.id}`
+    );
 
-    if (!confirmed) {
-      return;
-    }
+    setCars(
+      (current) =>
+        current.filter(
+          (item) =>
+            item.id !==
+            car.id
+        )
+    );
 
-    try {
+    setDeleteCar(null);
 
-      setDeletingId(
-        car.id
-      );
+  } catch (error) {
 
-      await userApi.delete(
-        `/api/sellers/cars/${car.id}`
-      );
+    console.error(
+      "DELETE SELLER VEHICLE ERROR:",
+      error
+    );
 
-      setCars(
-        (current) =>
-          current.filter(
-            (item) =>
-              item.id !==
-              car.id
-          )
-      );
+    window.alert(
+      "Could not delete vehicle."
+    );
 
-    } catch (error) {
+  } finally {
 
-      console.error(
-        "DELETE SELLER VEHICLE ERROR:",
-        error
-      );
-
-      window.alert(
-        "Could not delete vehicle."
-      );
-
-    } finally {
-
-      setDeletingId(
-        null
-      );
-    }
+    setDeletingId(
+      null
+    );
   }
+}
 
 
   /*
@@ -478,23 +469,31 @@ export function SellerDashboardPage() {
 
           {/* ADD VEHICLE */}
 
-          <div className="mb-8">
+          <div className="mb-8 flex flex-wrap items-center gap-3">
 
-            <button
-              type="button"
-              onClick={() =>
-                navigate(
-                  "/seller/cars/new"
-                )
-              }
-              className="flex items-center gap-2 rounded-full bg-champagne-300 px-6 py-3 text-xs font-bold uppercase tracking-[0.15em] text-black transition hover:bg-champagne-200"
-            >
-              <Plus className="size-4" />
+  <button
+    type="button"
+    onClick={() =>
+      navigate("/seller/cars/new")
+    }
+    className="flex items-center gap-2 rounded-full bg-champagne-300 px-6 py-3 text-xs font-bold uppercase tracking-[0.15em] text-black transition hover:bg-champagne-200"
+  >
+    <Plus className="size-4" />
+    Add Vehicle
+  </button>
 
-              Add Vehicle
-            </button>
+  <button
+    type="button"
+    onClick={() =>
+      navigate("/seller/test-drives")
+    }
+    className="flex items-center gap-2 rounded-full border border-champagne-400/30 px-6 py-3 text-xs font-bold uppercase tracking-[0.15em] text-champagne-300 transition hover:bg-champagne-400/10"
+  >
+    <CalendarDays className="size-4" />
+    Test Drive Requests
+  </button>
 
-          </div>
+</div>
 
 
           {/* INVENTORY */}
@@ -776,6 +775,37 @@ export function SellerDashboardPage() {
 
                               Preview 360°
                             </button>
+                            {/* TEST DRIVE AVAILABILITY */}
+
+{car.approvalStatus === "approved" && (
+  <button
+    type="button"
+    onClick={() =>
+      navigate(
+        `/seller/cars/${car.id}/availability`
+      )
+    }
+    className="inline-flex items-center gap-2 rounded-xl border border-champagne-400/25 px-4 py-2.5 text-xs font-semibold text-champagne-300 transition hover:border-champagne-400/50 hover:bg-champagne-400/10"
+  >
+    <CalendarDays className="size-4" />
+
+    Test Drive Availability
+  </button>
+)}
+{/* TEST DRIVE REQUESTS */}
+
+{car.approvalStatus === "approved" && (
+  <button
+    type="button"
+    onClick={() =>
+      navigate("/seller/test-drives")
+    }
+    className="inline-flex items-center gap-2 rounded-xl border border-champagne-400/25 px-4 py-2.5 text-xs font-semibold text-champagne-300 transition hover:border-champagne-400/50 hover:bg-champagne-400/10"
+  >
+    <CalendarDays className="size-4" />
+    Test Drive Requests
+  </button>
+)}
 
 
                             {/* EDIT */}
@@ -804,7 +834,7 @@ export function SellerDashboardPage() {
                                 car.id
                               }
                               onClick={() =>
-                                deleteVehicle(
+                                setDeleteCar(
                                   car
                                 )
                               }
@@ -859,6 +889,100 @@ export function SellerDashboardPage() {
           }
         />
       )}
+      {deleteCar && (
+  <div
+    className="fixed inset-0 z-[110] flex items-center justify-center bg-black/80 px-5 backdrop-blur-md"
+    onClick={() => {
+      if (!deletingId) {
+        setDeleteCar(null);
+      }
+    }}
+  >
+    <div
+      className="w-full max-w-md overflow-hidden rounded-3xl border border-white/10 bg-[#0b0b0c] shadow-2xl"
+      onClick={(event) =>
+        event.stopPropagation()
+      }
+    >
+      <div className="p-7">
+
+        <div className="flex items-start gap-4">
+
+          <div className="grid size-12 shrink-0 place-items-center rounded-2xl border border-red-500/20 bg-red-500/10">
+            <Trash2 className="size-5 text-red-400" />
+          </div>
+
+          <div>
+            <p className="font-display text-[10px] font-semibold uppercase tracking-[0.28em] text-red-400">
+              Permanent Action
+            </p>
+
+            <h2 className="mt-2 font-display text-xl font-semibold text-white">
+              Delete Vehicle?
+            </h2>
+          </div>
+
+        </div>
+
+        <p className="mt-6 text-sm leading-6 text-zinc-400">
+          This vehicle will be permanently removed,
+          including all uploaded images, color variants
+          and 3D model files.
+        </p>
+
+        <div className="mt-5 rounded-2xl border border-red-500/10 bg-red-500/[0.05] px-4 py-3">
+          <p className="text-xs text-red-300/80">
+            This action cannot be undone.
+          </p>
+        </div>
+
+      </div>
+
+      <div className="flex justify-end gap-3 border-t border-white/10 px-7 py-5">
+
+        <button
+          type="button"
+          disabled={
+            deletingId === deleteCar.id
+          }
+          onClick={() =>
+            setDeleteCar(null)
+          }
+          className="rounded-xl border border-white/10 px-5 py-2.5 text-xs font-semibold text-zinc-300 transition hover:bg-white/5 disabled:opacity-40"
+        >
+          Cancel
+        </button>
+
+        <button
+          type="button"
+          disabled={
+            deletingId === deleteCar.id
+          }
+          onClick={() =>
+            deleteVehicle(deleteCar)
+          }
+          className="inline-flex min-w-40 items-center justify-center gap-2 rounded-xl bg-red-500 px-5 py-2.5 text-xs font-bold text-white transition hover:bg-red-400 disabled:cursor-not-allowed disabled:opacity-60"
+        >
+          {deletingId ===
+          deleteCar.id ? (
+            <>
+              <Loader2 className="size-4 animate-spin" />
+              Deleting...
+            </>
+          ) : (
+            <>
+              <Trash2 className="size-4" />
+              Delete Vehicle
+            </>
+          )}
+        </button>
+
+      </div>
+
+    </div>
+  </div>
+)}
+
 
     </>
   );

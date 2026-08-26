@@ -1,4 +1,5 @@
 import { adminApi } from "@/lib/admin-auth";
+import { ModelViewer } from "@/components/three/model-viewer";
 import {
   Eye,
   CalendarDays,
@@ -1060,6 +1061,619 @@ export function AdminSellerRequestsPage() {
                 rejectingRequest.id
                   ? "Rejecting..."
                   : "Reject Seller"}
+              </button>
+
+            </div>
+
+          </div>
+
+        </div>
+      )}
+
+    </main>
+  );
+}
+type SellerVehicleReview = {
+  id: number;
+  sellerId: number;
+  sellerName: string;
+  sellerEmail: string;
+
+  name: string;
+  brandId: number;
+  brandName: string;
+
+  year: number;
+  price: number;
+
+  color: string;
+  colorHex: string;
+
+  description: string;
+
+  thumbnail: string;
+  images: string[];
+
+  modelPath: string | null;
+
+  approvalStatus:
+    | "pending"
+    | "approved"
+    | "rejected";
+
+  rejectionReason: string | null;
+  createdAt: string;
+};
+export function AdminVehicleReviewsPage() {
+  const navigate = useNavigate();
+
+  const [vehicles, setVehicles] =
+    useState<SellerVehicleReview[]>([]);
+
+  const [loading, setLoading] =
+    useState(true);
+
+  const [error, setError] =
+    useState("");
+
+  const [updatingId, setUpdatingId] =
+    useState<number | null>(null);
+
+  const [rejectingVehicle, setRejectingVehicle] =
+    useState<SellerVehicleReview | null>(null);
+
+  const [rejectionReason, setRejectionReason] =
+    useState("");
+    const [previewVehicle, setPreviewVehicle] =
+  useState<SellerVehicleReview | null>(null);
+
+  async function loadVehicles() {
+    try {
+      setLoading(true);
+      setError("");
+
+      const response =
+        await adminApi.get(
+          "/api/admin/seller-vehicles"
+        );
+
+      const result =
+        response.data?.data ??
+        response.data ??
+        [];
+
+      setVehicles(
+        Array.isArray(result)
+          ? result
+          : []
+      );
+
+    } catch (error) {
+      console.error(
+        "SELLER VEHICLES REVIEW ERROR:",
+        error
+      );
+
+      if (axios.isAxiosError(error)) {
+        if (error.response?.status === 401) {
+          navigate("/admin/login");
+          return;
+        }
+
+        if (error.response?.status === 403) {
+          setError(
+            "You do not have permission to review seller vehicles."
+          );
+          return;
+        }
+
+        setError(
+          error.response?.data?.error ??
+          error.response?.data?.message ??
+          "Unable to load seller vehicles."
+        );
+
+      } else {
+        setError(
+          "Unable to load seller vehicles."
+        );
+      }
+
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  useEffect(() => {
+    loadVehicles();
+  }, []);
+
+  async function approveVehicle(
+    vehicleId: number
+  ) {
+    try {
+      setUpdatingId(vehicleId);
+      setError("");
+
+      await adminApi.patch(
+        `/api/admin/seller-vehicles/${vehicleId}/approve`
+      );
+
+      setVehicles((current) =>
+        current.map((vehicle) =>
+          vehicle.id === vehicleId
+            ? {
+                ...vehicle,
+                approvalStatus:
+                  "approved",
+                rejectionReason:
+                  null,
+              }
+            : vehicle
+        )
+      );
+
+    } catch (error) {
+      console.error(
+        "APPROVE SELLER VEHICLE ERROR:",
+        error
+      );
+
+      if (axios.isAxiosError(error)) {
+        setError(
+          error.response?.data?.error ??
+          error.response?.data?.message ??
+          "Unable to approve vehicle."
+        );
+      }
+
+    } finally {
+      setUpdatingId(null);
+    }
+  }
+
+  async function rejectVehicle() {
+    if (!rejectingVehicle) {
+      return;
+    }
+
+    const reason =
+      rejectionReason.trim();
+
+    if (!reason) {
+      setError(
+        "Please enter a rejection reason."
+      );
+      return;
+    }
+
+    try {
+      setUpdatingId(
+        rejectingVehicle.id
+      );
+
+      setError("");
+
+      await adminApi.patch(
+        `/api/admin/seller-vehicles/${rejectingVehicle.id}/reject`,
+        {
+          reason,
+        }
+      );
+
+      setVehicles((current) =>
+        current.map((vehicle) =>
+          vehicle.id ===
+          rejectingVehicle.id
+            ? {
+                ...vehicle,
+                approvalStatus:
+                  "rejected",
+                rejectionReason:
+                  reason,
+              }
+            : vehicle
+        )
+      );
+
+      setRejectingVehicle(null);
+      setRejectionReason("");
+
+    } catch (error) {
+      console.error(
+        "REJECT SELLER VEHICLE ERROR:",
+        error
+      );
+
+      if (axios.isAxiosError(error)) {
+        setError(
+          error.response?.data?.error ??
+          error.response?.data?.message ??
+          "Unable to reject vehicle."
+        );
+      }
+
+    } finally {
+      setUpdatingId(null);
+    }
+  }
+
+  if (loading) {
+    return (
+      <div className="min-h-screen pt-40 text-center text-white">
+        Loading vehicle reviews...
+      </div>
+    );
+  }
+
+  return (
+    <main className="min-h-screen px-5 pb-20 pt-28">
+
+      <div className="mx-auto max-w-7xl">
+
+        <div className="mb-10">
+
+          <p className="mb-3 text-xs font-semibold uppercase tracking-[0.35em] text-[#d7b36a]">
+            Admin Studio
+          </p>
+
+          <h1 className="text-4xl font-semibold text-white">
+            Vehicle Reviews
+          </h1>
+
+          <p className="mt-3 text-sm text-white/45">
+            Review vehicles submitted by approved sellers before they are published.
+          </p>
+
+        </div>
+
+        {error && (
+          <div className="mb-6 rounded-xl border border-red-500/20 bg-red-500/10 p-4 text-sm text-red-300">
+            {error}
+          </div>
+        )}
+
+        {!error &&
+          vehicles.length === 0 && (
+            <div className="rounded-2xl border border-white/10 bg-white/[0.02] px-6 py-16 text-center">
+
+              <CarFront className="mx-auto mb-4 h-8 w-8 text-white/30" />
+
+              <p className="text-white">
+                No seller vehicles waiting for review.
+              </p>
+
+              <p className="mt-2 text-sm text-white/40">
+                New vehicle submissions will appear here.
+              </p>
+
+            </div>
+          )}
+
+        {vehicles.length > 0 && (
+
+          <div className="space-y-5">
+
+            {vehicles.map((vehicle) => (
+
+              <article
+                key={vehicle.id}
+                className="overflow-hidden rounded-3xl border border-white/10 bg-white/[0.02]"
+              >
+
+                <div className="grid lg:grid-cols-[280px_1fr]">
+
+                  <div className="relative min-h-[240px] bg-black">
+
+                    <img
+                      src={vehicle.thumbnail}
+                      alt={vehicle.name}
+                      className="absolute inset-0 h-full w-full object-cover"
+                    />
+
+                  </div>
+
+                  <div className="p-6">
+
+                    <div className="flex flex-wrap items-start justify-between gap-4">
+
+                      <div>
+
+                        <p className="text-[10px] font-semibold uppercase tracking-[0.22em] text-[#d7b36a]">
+                          {vehicle.brandName}
+                        </p>
+
+                        <h2 className="mt-2 text-2xl font-semibold text-white">
+                          {vehicle.name}
+                        </h2>
+
+                        <p className="mt-1 text-xs text-white/35">
+                          Vehicle #{vehicle.id}
+                        </p>
+
+                      </div>
+
+                      <span
+                        className={`rounded-full border px-3 py-1 text-[10px] font-semibold uppercase tracking-wider ${
+                          vehicle.approvalStatus ===
+                          "approved"
+                            ? "border-emerald-500/25 bg-emerald-500/10 text-emerald-300"
+                            : vehicle.approvalStatus ===
+                              "rejected"
+                            ? "border-red-500/25 bg-red-500/10 text-red-300"
+                            : "border-[#d7b36a]/25 bg-[#d7b36a]/10 text-[#d7b36a]"
+                        }`}
+                      >
+                        {vehicle.approvalStatus}
+                      </span>
+
+                    </div>
+
+                    <div className="mt-6 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+
+                      <div>
+                        <p className="text-[10px] uppercase tracking-[0.16em] text-white/30">
+                          Seller
+                        </p>
+
+                        <p className="mt-2 text-sm text-white">
+                          {vehicle.sellerName}
+                        </p>
+
+                        <p className="mt-1 text-xs text-white/35">
+                          {vehicle.sellerEmail}
+                        </p>
+                      </div>
+
+                      <div>
+                        <p className="text-[10px] uppercase tracking-[0.16em] text-white/30">
+                          Year
+                        </p>
+
+                        <p className="mt-2 text-sm text-white">
+                          {vehicle.year}
+                        </p>
+                      </div>
+
+                      <div>
+                        <p className="text-[10px] uppercase tracking-[0.16em] text-white/30">
+                          Paint
+                        </p>
+
+                        <div className="mt-2 flex items-center gap-2">
+                          <span
+                            className="size-3 rounded-full border border-white/20"
+                            style={{
+                              backgroundColor:
+                                vehicle.colorHex,
+                            }}
+                          />
+
+                          <span className="text-sm text-white">
+                            {vehicle.color}
+                          </span>
+                        </div>
+                      </div>
+
+                      <div>
+                        <p className="text-[10px] uppercase tracking-[0.16em] text-white/30">
+                          Price
+                        </p>
+
+                        <p className="mt-2 text-sm font-semibold text-[#d7b36a]">
+                          $
+                          {Number(
+                            vehicle.price
+                          ).toLocaleString()}
+                        </p>
+                      </div>
+
+                    </div>
+
+                    <p className="mt-6 text-sm leading-6 text-white/50">
+                      {vehicle.description}
+                    </p>
+
+                    {vehicle.approvalStatus ===
+                      "rejected" &&
+                      vehicle.rejectionReason && (
+                        <div className="mt-5 rounded-xl border border-red-500/20 bg-red-500/10 p-4 text-sm text-red-300">
+                          {
+                            vehicle.rejectionReason
+                          }
+                        </div>
+                      )}
+
+                    <div className="mt-7 flex flex-wrap gap-3 border-t border-white/10 pt-5">
+
+                      {vehicle.modelPath && (
+  <button
+    type="button"
+    onClick={() =>
+      setPreviewVehicle(vehicle)
+    }
+    className="rounded-full border border-white/10 px-5 py-2.5 text-xs font-semibold text-white/60 transition hover:border-[#d7b36a]/40 hover:text-[#d7b36a]"
+  >
+    Preview 360°
+  </button>
+)}
+
+                      {vehicle.approvalStatus ===
+                        "pending" && (
+                          <>
+                            <button
+                              type="button"
+                              disabled={
+                                updatingId ===
+                                vehicle.id
+                              }
+                              onClick={() =>
+                                approveVehicle(
+                                  vehicle.id
+                                )
+                              }
+                              className="inline-flex items-center gap-2 rounded-full bg-emerald-500 px-5 py-2.5 text-xs font-bold uppercase tracking-[0.12em] text-black disabled:opacity-50"
+                            >
+                              <CheckCircle2 className="h-4 w-4" />
+
+                              Approve
+                            </button>
+
+                            <button
+                              type="button"
+                              disabled={
+                                updatingId ===
+                                vehicle.id
+                              }
+                              onClick={() => {
+                                setError("");
+                                setRejectingVehicle(
+                                  vehicle
+                                );
+                                setRejectionReason(
+                                  ""
+                                );
+                              }}
+                              className="inline-flex items-center gap-2 rounded-full border border-red-500/30 bg-red-500/10 px-5 py-2.5 text-xs font-bold uppercase tracking-[0.12em] text-red-300 disabled:opacity-50"
+                            >
+                              <XCircle className="h-4 w-4" />
+
+                              Reject
+                            </button>
+                          </>
+                        )}
+
+                    </div>
+
+                  </div>
+
+                </div>
+
+              </article>
+
+            ))}
+
+          </div>
+
+        )}
+
+      </div>
+      {/* 360 VEHICLE PREVIEW MODAL */}
+
+{previewVehicle && (
+  <div
+    className="fixed inset-0 z-[110] flex items-center justify-center bg-black/85 px-5 backdrop-blur-sm"
+    onClick={() => setPreviewVehicle(null)}
+  >
+    <div
+      className="w-full max-w-6xl overflow-hidden rounded-3xl border border-white/10 bg-[#0d0d0f] shadow-2xl"
+      onClick={(e) => e.stopPropagation()}
+    >
+      {/* HEADER */}
+
+      <div className="flex items-center justify-between border-b border-white/10 px-6 py-5">
+        <div>
+          <p className="text-[10px] font-semibold uppercase tracking-[0.22em] text-[#d7b36a]">
+            360° Vehicle Preview
+          </p>
+
+          <h2 className="mt-1 text-xl font-semibold text-white">
+            {previewVehicle.year} {previewVehicle.name}
+          </h2>
+        </div>
+
+        <button
+          type="button"
+          onClick={() => setPreviewVehicle(null)}
+          className="rounded-full border border-white/10 px-5 py-2 text-xs text-white/60 transition hover:border-white/30 hover:text-white"
+        >
+          Close
+        </button>
+      </div>
+
+      {/* 3D VIEWER */}
+
+      <div className="relative h-[70vh] min-h-[500px] w-full overflow-hidden bg-black">
+  <ModelViewer
+    modelPath={previewVehicle.modelPath}
+    sketchfabUrl={null}
+    color={previewVehicle.colorHex}
+    colorName={previewVehicle.color}
+    className="h-full min-h-[500px] w-full rounded-none border-0"
+  />
+</div>
+    </div>
+  </div>
+)}
+
+      {rejectingVehicle && (
+
+        <div
+          className="fixed inset-0 z-[100] flex items-center justify-center bg-black/70 px-5 backdrop-blur-sm"
+          onClick={() =>
+            setRejectingVehicle(null)
+          }
+        >
+
+          <div
+            className="w-full max-w-lg rounded-3xl border border-white/10 bg-[#0d0d0f] p-7"
+            onClick={(e) =>
+              e.stopPropagation()
+            }
+          >
+
+            <p className="text-[10px] font-semibold uppercase tracking-[0.22em] text-red-300">
+              Reject Vehicle
+            </p>
+
+            <h2 className="mt-2 text-2xl font-semibold text-white">
+              Reject {rejectingVehicle.name}?
+            </h2>
+
+            <p className="mt-3 text-sm leading-6 text-white/45">
+              Enter the reason for rejecting this vehicle listing.
+            </p>
+
+            <textarea
+              value={rejectionReason}
+              onChange={(e) =>
+                setRejectionReason(
+                  e.target.value
+                )
+              }
+              placeholder="Reason for rejection..."
+              rows={4}
+              className="mt-6 w-full resize-none rounded-xl border border-white/10 bg-white/[0.03] px-4 py-3 text-sm text-white outline-none placeholder:text-white/25 focus:border-red-500/40"
+            />
+
+            <div className="mt-6 flex justify-end gap-3">
+
+              <button
+                type="button"
+                onClick={() => {
+                  setRejectingVehicle(null);
+                  setRejectionReason("");
+                }}
+                className="rounded-full border border-white/10 px-5 py-2.5 text-xs font-semibold text-white/60"
+              >
+                Cancel
+              </button>
+
+              <button
+                type="button"
+                disabled={
+                  updatingId ===
+                  rejectingVehicle.id
+                }
+                onClick={
+                  rejectVehicle
+                }
+                className="rounded-full bg-red-500 px-5 py-2.5 text-xs font-bold uppercase tracking-[0.12em] text-white disabled:opacity-50"
+              >
+                {updatingId ===
+                rejectingVehicle.id
+                  ? "Rejecting..."
+                  : "Reject Vehicle"}
               </button>
 
             </div>

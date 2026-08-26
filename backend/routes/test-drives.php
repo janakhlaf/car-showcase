@@ -82,6 +82,240 @@ function authenticatedUser(PDO $pdo): array
 }
 /*
 |--------------------------------------------------------------------------
+| GET AVAILABLE TEST DRIVE SLOTS
+|--------------------------------------------------------------------------
+*/
+
+if (
+    preg_match(
+        '#^test-drives/availability/(\d+)$#',
+        $route,
+        $matches
+    )
+    &&
+    $method === 'GET'
+) {
+    $carId = (int)$matches[1];
+
+    $date =
+        trim(
+            (string)($_GET['date'] ?? '')
+        );
+
+    if ($carId <= 0) {
+        fail(
+            'Invalid car',
+            422
+        );
+    }
+
+    /*
+    |--------------------------------------------------------------------------
+    | VALIDATE DATE
+    |--------------------------------------------------------------------------
+    */
+
+    $dateObject =
+        DateTime::createFromFormat(
+            'Y-m-d',
+            $date
+        );
+
+    if (
+        !$dateObject
+        ||
+        $dateObject->format('Y-m-d') !== $date
+    ) {
+        fail(
+            'Invalid date',
+            422
+        );
+    }
+
+    /*
+    |--------------------------------------------------------------------------
+    | GET DAY OF WEEK
+    |--------------------------------------------------------------------------
+    |
+    | MySQL DAYOFWEEK style:
+    | Sunday = 1
+    | Monday = 2
+    | ...
+    | Saturday = 7
+    |
+    */
+
+    $dayOfWeek =
+    (int)$dateObject->format('w');
+
+    /*
+    |--------------------------------------------------------------------------
+    | GET SELLER AVAILABILITY
+    |--------------------------------------------------------------------------
+    */
+
+    $statement =
+        $pdo->prepare(
+            'SELECT
+                id,
+                seller_id,
+                car_id,
+                day_of_week,
+                start_time,
+                end_time,
+                slot_duration
+             FROM seller_test_drive_availability
+             WHERE car_id = ?
+               AND day_of_week = ?
+               AND is_active = 1
+             ORDER BY start_time ASC'
+        );
+
+    $statement->execute([
+        $carId,
+        $dayOfWeek
+    ]);
+
+    $availabilityRows =
+        $statement->fetchAll();
+
+    if (!$availabilityRows) {
+        out([
+            'available' => false,
+            'slots' => []
+        ]);
+
+        exit;
+    }
+
+    /*
+    |--------------------------------------------------------------------------
+    | EXISTING BOOKINGS
+    |--------------------------------------------------------------------------
+    */
+
+    $bookingStatement =
+        $pdo->prepare(
+            'SELECT
+                test_drive_time,
+                status
+             FROM test_drive_bookings
+             WHERE car_id = ?
+               AND test_drive_date = ?
+               AND status IN (
+                    \'pending\',
+                    \'confirmed\'
+               )'
+        );
+
+    $bookingStatement->execute([
+        $carId,
+        $date
+    ]);
+
+    $existingBookings =
+        $bookingStatement->fetchAll();
+
+    $bookedTimes = [];
+
+    foreach ($existingBookings as $booking) {
+        $bookedTimes[] =
+            substr(
+                (string)$booking['test_drive_time'],
+                0,
+                5
+            );
+    }
+
+    /*
+    |--------------------------------------------------------------------------
+    | GENERATE AVAILABLE SLOTS
+    |--------------------------------------------------------------------------
+    */
+
+    $slots = [];
+
+    foreach ($availabilityRows as $availability) {
+
+        $slotDuration =
+            (int)$availability['slot_duration'];
+
+        if ($slotDuration <= 0) {
+            continue;
+        }
+
+        $current =
+            new DateTime(
+                $date . ' ' .
+                $availability['start_time']
+            );
+
+        $end =
+            new DateTime(
+                $date . ' ' .
+                $availability['end_time']
+            );
+
+        while (true) {
+
+            $slotEnd =
+                clone $current;
+
+            $slotEnd->modify(
+                '+' .
+                $slotDuration .
+                ' minutes'
+            );
+
+            if ($slotEnd > $end) {
+                break;
+            }
+
+            $time =
+                $current->format('H:i');
+
+            /*
+             * Do not show past slots.
+             */
+
+            if (
+                $current > new DateTime()
+                &&
+                !in_array(
+                    $time,
+                    $bookedTimes,
+                    true
+                )
+            ) {
+                $slots[] = [
+                    'time' =>
+                        $time,
+
+                    'durationMinutes' =>
+                        $slotDuration
+                ];
+            }
+
+            $current->modify(
+                '+' .
+                $slotDuration .
+                ' minutes'
+            );
+        }
+    }
+
+    out([
+        'available' =>
+            count($slots) > 0,
+
+        'slots' =>
+            $slots
+    ]);
+
+    exit;
+}
+/*
+|--------------------------------------------------------------------------
 | CREATE TEST DRIVE BOOKING
 |--------------------------------------------------------------------------
 */
@@ -144,10 +378,13 @@ if (
 
     $carStatement =
         $pdo->prepare(
-            'SELECT id, name
-             FROM cars
-             WHERE id = ?
-             LIMIT 1'
+            'SELECT
+    id,
+    name,
+    seller_id
+FROM cars
+WHERE id = ?
+LIMIT 1'
         );
 
     $carStatement->execute([
@@ -163,6 +400,11 @@ if (
             404
         );
     }
+    
+    $sellerId =
+    $car['seller_id'] !== null
+        ? (int)$car['seller_id']
+        : null;
 
 
     /*
@@ -170,6 +412,19 @@ if (
     | VALIDATE BRANCH
     |--------------------------------------------------------------------------
     */
+
+    /*
+|--------------------------------------------------------------------------
+| BRANCH / SELLER VEHICLE
+|--------------------------------------------------------------------------
+*/
+
+if ($sellerId !== null) {
+
+    // Seller vehicles do not belong to a showroom branch.
+    $branch = 'seller';
+
+} else {
 
     $allowedBranches = [
         'nablus',
@@ -188,6 +443,7 @@ if (
             422
         );
     }
+}
 
 
     /*
@@ -263,27 +519,124 @@ if (
         );
     }
         /*
-    |--------------------------------------------------------------------------
-    | BOOKING DURATION
-    |--------------------------------------------------------------------------
-    */
+|--------------------------------------------------------------------------
+| GET SELLER AVAILABILITY FOR SELECTED SLOT
+|--------------------------------------------------------------------------
+*/
 
-    $testDriveDurationMinutes = 60;
-    $bufferMinutes = 15;
+$dayOfWeek =
+    (int)$dateObject->format('w');
 
-    $bookingEnd =
-        clone $bookingStart;
-
-    $bookingEnd->modify(
-        '+' . $testDriveDurationMinutes . ' minutes'
+$availabilityStatement =
+    $pdo->prepare(
+        'SELECT
+            id,
+            seller_id,
+            start_time,
+            end_time,
+            slot_duration
+         FROM seller_test_drive_availability
+         WHERE car_id = ?
+           AND day_of_week = ?
+           AND is_active = 1
+         ORDER BY start_time ASC'
     );
 
-    $bookingBlockedUntil =
-        clone $bookingEnd;
+$availabilityStatement->execute([
+    $carId,
+    $dayOfWeek
+]);
 
-    $bookingBlockedUntil->modify(
-        '+' . $bufferMinutes . ' minutes'
+$availabilityRows =
+    $availabilityStatement->fetchAll();
+
+$matchedAvailability = null;
+
+foreach ($availabilityRows as $availability) {
+
+    $availableStart =
+        new DateTime(
+            $testDriveDate . ' ' .
+            $availability['start_time']
+        );
+
+    $availableEnd =
+        new DateTime(
+            $testDriveDate . ' ' .
+            $availability['end_time']
+        );
+
+    $slotDuration =
+        (int)$availability['slot_duration'];
+
+    if ($slotDuration <= 0) {
+        continue;
+    }
+
+    $cursor = clone $availableStart;
+
+    while (true) {
+
+        $slotEnd = clone $cursor;
+
+        $slotEnd->modify(
+            '+' . $slotDuration . ' minutes'
+        );
+
+        if ($slotEnd > $availableEnd) {
+            break;
+        }
+
+        if (
+            $cursor->format('H:i')
+            === $testDriveTime
+        ) {
+            $matchedAvailability =
+                $availability;
+
+            break 2;
+        }
+
+        $cursor->modify(
+            '+' . $slotDuration . ' minutes'
+        );
+    }
+}
+
+if (!$matchedAvailability) {
+    fail(
+        'This time is not available for this vehicle.',
+        422
     );
+}
+
+/*
+|--------------------------------------------------------------------------
+| BOOKING DURATION
+|--------------------------------------------------------------------------
+*/
+
+$testDriveDurationMinutes =
+    (int)$matchedAvailability['slot_duration'];
+
+/*
+ * Seller slots are already separated by
+ * the selected appointment duration.
+ * No additional admin/showroom buffer.
+ */
+$bufferMinutes = 0;
+
+$bookingEnd =
+    clone $bookingStart;
+
+$bookingEnd->modify(
+    '+' .
+    $testDriveDurationMinutes .
+    ' minutes'
+);
+
+$bookingBlockedUntil =
+    clone $bookingEnd;
 
 
     /*
@@ -382,39 +735,41 @@ if (
     */
 
     $insertStatement =
-        $pdo->prepare(
-            'INSERT INTO test_drive_bookings
-            (
-                user_id,
-                car_id,
-                name,
-                email,
-                phone,
-                branch,
-                test_drive_date,
-                test_drive_time,
-                notes,
-                status
-            )
-            VALUES
-            (
-                ?, ?, ?, ?, ?, ?, ?, ?, ?, \'pending\'
-            )'
-        );
+    $pdo->prepare(
+        'INSERT INTO test_drive_bookings
+        (
+            user_id,
+            car_id,
+            seller_id,
+            name,
+            email,
+            phone,
+            branch,
+            test_drive_date,
+            test_drive_time,
+            notes,
+            status
+        )
+        VALUES
+        (
+            ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, \'pending\'
+        )'
+    );
 
     $insertStatement->execute([
-        $user['id'],
-        $carId,
-        $user['name'],
-        $user['email'],
-        $user['phone'],
-        $branch,
-        $testDriveDate,
-        $testDriveTime,
-        $notes !== ''
-            ? $notes
-            : null
-    ]);
+    $user['id'],
+    $carId,
+    $sellerId,
+    $user['name'],
+    $user['email'],
+    $user['phone'],
+    $branch,
+    $testDriveDate,
+    $testDriveTime,
+    $notes !== ''
+        ? $notes
+        : null
+]);
 
     /*
 |--------------------------------------------------------------------------
@@ -537,6 +892,7 @@ if (
             'SELECT
                 t.id,
                 t.car_id AS carId,
+                t.seller_id AS sellerId,
                 t.branch,
                 t.test_drive_date AS testDriveDate,
                 t.test_drive_time AS testDriveTime,
@@ -580,6 +936,10 @@ if (
 
         $booking['carId'] =
             (int)$booking['carId'];
+            $booking['sellerId'] =
+        $booking['sellerId'] !== null
+            ? (int)$booking['sellerId']
+            : null;
 
         $booking['carYear'] =
             (int)$booking['carYear'];
@@ -591,6 +951,344 @@ if (
         'bookings' =>
             $bookings
     ]);
+}
+/*
+|--------------------------------------------------------------------------
+| SELLER - GET MY TEST DRIVE BOOKINGS
+|--------------------------------------------------------------------------
+*/
+
+if (
+    $route === 'seller/test-drives'
+    &&
+    $method === 'GET'
+) {
+    $seller = authenticatedUser($pdo);
+
+    $statement =
+        $pdo->prepare(
+            'SELECT
+                t.id,
+                t.user_id AS userId,
+                t.car_id AS carId,
+                t.seller_id AS sellerId,
+
+                t.name AS customerName,
+                t.email AS customerEmail,
+                t.phone AS customerPhone,
+
+                t.test_drive_date AS testDriveDate,
+                t.test_drive_time AS testDriveTime,
+
+                t.notes,
+                t.status,
+                t.created_at AS createdAt,
+
+                c.name AS carName,
+                c.year AS carYear,
+
+                b.name AS brandName
+
+             FROM test_drive_bookings t
+
+             INNER JOIN cars c
+                ON c.id = t.car_id
+
+             INNER JOIN brands b
+                ON b.id = c.brand_id
+
+             WHERE t.seller_id = ?
+
+             ORDER BY
+                t.test_drive_date ASC,
+                t.test_drive_time ASC'
+        );
+
+    $statement->execute([
+        $seller['id']
+    ]);
+
+    $bookings =
+        $statement->fetchAll();
+
+    foreach ($bookings as &$booking) {
+        $booking['id'] =
+            (int)$booking['id'];
+
+        $booking['userId'] =
+            (int)$booking['userId'];
+
+        $booking['carId'] =
+            (int)$booking['carId'];
+
+        $booking['sellerId'] =
+            (int)$booking['sellerId'];
+
+        $booking['carYear'] =
+            (int)$booking['carYear'];
+    }
+
+    unset($booking);
+
+    out([
+        'bookings' => $bookings
+    ]);
+
+    exit;
+}
+
+
+/*
+|--------------------------------------------------------------------------
+| SELLER - UPDATE TEST DRIVE STATUS
+|--------------------------------------------------------------------------
+*/
+
+if (
+    preg_match(
+        '#^seller/test-drives/(\d+)/status$#',
+        $route,
+        $matches
+    )
+    &&
+    $method === 'PATCH'
+) {
+    $seller =
+        authenticatedUser($pdo);
+
+    $bookingId =
+        (int)$matches[1];
+
+    $b = body();
+
+    $newStatus =
+        strtolower(
+            trim(
+                (string)($b['status'] ?? '')
+            )
+        );
+
+    if (
+        !in_array(
+            $newStatus,
+            [
+                'confirmed',
+                'cancelled',
+                'completed'
+            ],
+            true
+        )
+    ) {
+        fail(
+            'Invalid booking status',
+            422
+        );
+    }
+
+    /*
+     * Seller can only manage
+     * bookings belonging to their own vehicles.
+     */
+
+    $statement =
+        $pdo->prepare(
+            'SELECT
+                t.id,
+                t.car_id,
+                t.status,
+                t.name,
+                t.phone,
+                t.test_drive_date,
+                t.test_drive_time,
+
+                c.name AS car_name
+
+             FROM test_drive_bookings t
+
+             INNER JOIN cars c
+                ON c.id = t.car_id
+
+             WHERE t.id = ?
+               AND t.seller_id = ?
+
+             LIMIT 1'
+        );
+
+    $statement->execute([
+        $bookingId,
+        $seller['id']
+    ]);
+
+    $booking =
+        $statement->fetch();
+
+    if (!$booking) {
+        fail(
+            'Test drive booking not found',
+            404
+        );
+    }
+
+    $currentStatus =
+        strtolower(
+            (string)$booking['status']
+        );
+
+    $allowedTransitions = [
+        'pending' => [
+            'confirmed',
+            'cancelled'
+        ],
+
+        'confirmed' => [
+            'completed',
+            'cancelled'
+        ],
+
+        'completed' => [],
+        'cancelled' => [],
+    ];
+
+    if (
+        !isset(
+            $allowedTransitions[$currentStatus]
+        )
+        ||
+        !in_array(
+            $newStatus,
+            $allowedTransitions[$currentStatus],
+            true
+        )
+    ) {
+        fail(
+            'This booking status cannot be changed.',
+            409
+        );
+    }
+    /*
+|--------------------------------------------------------------------------
+| PREVENT EARLY COMPLETION
+|--------------------------------------------------------------------------
+*/
+
+if ($newStatus === 'completed') {
+
+    $bookingStart = new DateTime(
+        $booking['test_drive_date']
+        . ' '
+        . $booking['test_drive_time']
+    );
+
+    $dayOfWeek =
+        (int)$bookingStart->format('w');
+
+    $durationStatement =
+        $pdo->prepare(
+            'SELECT slot_duration
+             FROM seller_test_drive_availability
+             WHERE seller_id = ?
+               AND car_id = ?
+               AND day_of_week = ?
+               AND is_active = 1
+             ORDER BY id DESC
+             LIMIT 1'
+        );
+
+    $durationStatement->execute([
+        $seller['id'],
+        (int)$booking['car_id'],
+        $dayOfWeek
+    ]);
+
+    $slotDuration =
+        (int)$durationStatement->fetchColumn();
+
+    if ($slotDuration <= 0) {
+        fail(
+            'Could not determine the test drive duration.',
+            409
+        );
+    }
+
+    $bookingEnd = clone $bookingStart;
+
+    $bookingEnd->modify(
+        '+' . $slotDuration . ' minutes'
+    );
+
+    $now = new DateTime();
+
+    if ($now < $bookingEnd) {
+        fail(
+            'This test drive cannot be completed before the appointment has ended.',
+            409
+        );
+    }
+}
+
+    $update =
+        $pdo->prepare(
+            'UPDATE test_drive_bookings
+             SET
+                status = ?,
+                updated_at = CURRENT_TIMESTAMP
+             WHERE id = ?
+               AND seller_id = ?'
+        );
+
+    $update->execute([
+        $newStatus,
+        $bookingId,
+        $seller['id']
+    ]);
+
+    /*
+     * Notify customer on WhatsApp.
+     */
+
+    if ($newStatus === 'confirmed') {
+
+        $message =
+            "VELOCE Test Drive Confirmed ✅\n\n" .
+            "Hi " . $booking['name'] . ",\n\n" .
+            "Your test drive request has been confirmed.\n\n" .
+            "Car: " . $booking['car_name'] . "\n" .
+            "Date: " . $booking['test_drive_date'] . "\n" .
+            "Time: " . $booking['test_drive_time'];
+
+        sendWhatsAppMessage(
+            $booking['phone'],
+            $message
+        );
+    }
+
+    if ($newStatus === 'cancelled') {
+
+        $message =
+            "VELOCE Test Drive Update\n\n" .
+            "Hi " . $booking['name'] . ",\n\n" .
+            "Your test drive request was declined.\n\n" .
+            "Car: " . $booking['car_name'] . "\n" .
+            "Date: " . $booking['test_drive_date'] . "\n" .
+            "Time: " . $booking['test_drive_time'];
+
+        sendWhatsAppMessage(
+            $booking['phone'],
+            $message
+        );
+    }
+
+    out([
+        'booking' => [
+            'id' =>
+                $bookingId,
+
+            'status' =>
+                $newStatus
+        ]
+    ]);
+
+    exit;
 }
 /* 
 |--------------------------------------------------------------------------
@@ -890,10 +1588,36 @@ if ($newStatus === 'completed') {
         . $booking['test_drive_time']
     );
 
+    $dayOfWeek = (int)$bookingStart->format('w');
+
+    $durationStatement = $pdo->prepare(
+        'SELECT slot_duration
+         FROM seller_test_drive_availability
+         WHERE car_id = ?
+           AND day_of_week = ?
+           AND is_active = 1
+         ORDER BY id DESC
+         LIMIT 1'
+    );
+
+    $durationStatement->execute([
+        (int)$booking['car_id'],
+        $dayOfWeek
+    ]);
+
+    $slotDuration = (int)$durationStatement->fetchColumn();
+
+    // Admin/default cars use 60 minutes.
+    // Seller cars use the seller-defined slot duration.
+    if ($slotDuration <= 0) {
+        $slotDuration = 60;
+    }
+
     $bookingEnd = clone $bookingStart;
 
-    // Test drive duration = 60 minutes
-    $bookingEnd->modify('+60 minutes');
+    $bookingEnd->modify(
+        '+' . $slotDuration . ' minutes'
+    );
 
     $now = new DateTime();
 

@@ -460,6 +460,450 @@ if (
         );
     }
 }
+/*
+|--------------------------------------------------------------------------
+| ADMIN - GET SELLER VEHICLES
+|--------------------------------------------------------------------------
+*/
+
+if (
+    $route === 'admin/seller-vehicles'
+    &&
+    $method === 'GET'
+) {
+
+    requirePermission(
+        $pdo,
+        'seller_vehicles.review'
+    );
+
+    $statement = $pdo->query(
+        'SELECT
+            c.id,
+
+            c.seller_id
+                AS sellerId,
+
+            u.name
+                AS sellerName,
+
+            u.email
+                AS sellerEmail,
+
+            c.approval_status
+                AS approvalStatus,
+
+            c.rejection_reason
+                AS rejectionReason,
+
+            c.reviewed_at
+                AS reviewedAt,
+
+            c.reviewed_by
+                AS reviewedBy,
+
+            c.name,
+
+            c.brand_id
+                AS brandId,
+
+            b.name
+                AS brandName,
+
+            c.year,
+            c.price,
+            c.color,
+
+            c.color_hex
+                AS colorHex,
+
+            c.description,
+            c.thumbnail,
+            c.images,
+
+            c.model_path
+                AS modelPath,
+
+            c.created_at
+                AS createdAt
+
+         FROM cars c
+
+         INNER JOIN users u
+            ON u.id = c.seller_id
+
+         INNER JOIN brands b
+            ON b.id = c.brand_id
+
+         WHERE c.seller_id IS NOT NULL
+
+         ORDER BY
+            CASE
+                WHEN c.approval_status = \'pending\'
+                THEN 0
+                ELSE 1
+            END,
+
+            c.created_at DESC'
+    );
+
+    $vehicles =
+        $statement->fetchAll();
+
+    foreach (
+        $vehicles
+        as &$vehicle
+    ) {
+
+        $vehicle['id'] =
+            (int)$vehicle['id'];
+
+        $vehicle['sellerId'] =
+            (int)$vehicle['sellerId'];
+
+        $vehicle['brandId'] =
+            (int)$vehicle['brandId'];
+
+        $vehicle['year'] =
+            (int)$vehicle['year'];
+
+        $vehicle['price'] =
+            (int)$vehicle['price'];
+
+        $vehicle['reviewedBy'] =
+            $vehicle['reviewedBy'] !== null
+                ? (int)$vehicle['reviewedBy']
+                : null;
+
+        $vehicle['images'] =
+            json_decode(
+                $vehicle['images']
+                    ?: '[]',
+                true
+            ) ?: [];
+    }
+
+    unset($vehicle);
+
+    out($vehicles);
+}
+
+
+/*
+|--------------------------------------------------------------------------
+| ADMIN - APPROVE SELLER VEHICLE
+|--------------------------------------------------------------------------
+*/
+
+if (
+    preg_match(
+        '#^admin/seller-vehicles/(\d+)/approve$#',
+        $route,
+        $matches
+    )
+    &&
+    $method === 'PATCH'
+) {
+
+    requirePermission(
+        $pdo,
+        'seller_vehicles.review'
+    );
+
+    $adminPayload =
+        admin();
+
+    $adminId =
+        (int)(
+            $adminPayload['sub']
+            ?? 0
+        );
+
+    $carId =
+        (int)$matches[1];
+
+    $pdo->beginTransaction();
+
+    try {
+
+        /*
+        |--------------------------------------------------------------------------
+        | LOCK VEHICLE
+        |--------------------------------------------------------------------------
+        */
+
+        $statement =
+            $pdo->prepare(
+                'SELECT
+                    id,
+                    seller_id,
+                    approval_status
+
+                 FROM cars
+
+                 WHERE id = ?
+                   AND seller_id IS NOT NULL
+
+                 LIMIT 1
+                 FOR UPDATE'
+            );
+
+        $statement->execute([
+            $carId
+        ]);
+
+        $vehicle =
+            $statement->fetch();
+
+        if (!$vehicle) {
+            throw new RuntimeException(
+                'Seller vehicle not found'
+            );
+        }
+
+        if (
+            $vehicle['approval_status']
+            !== 'pending'
+        ) {
+            throw new RuntimeException(
+                'Vehicle has already been reviewed'
+            );
+        }
+
+
+        /*
+        |--------------------------------------------------------------------------
+        | APPROVE
+        |--------------------------------------------------------------------------
+        */
+
+        $updateStatement =
+            $pdo->prepare(
+                'UPDATE cars
+
+                 SET
+                    approval_status = \'approved\',
+                    rejection_reason = NULL,
+                    reviewed_at = CURRENT_TIMESTAMP,
+                    reviewed_by = ?
+
+                 WHERE id = ?
+                   AND seller_id IS NOT NULL'
+            );
+
+        $updateStatement->execute([
+            $adminId,
+            $carId
+        ]);
+
+        $pdo->commit();
+
+    } catch (Throwable $e) {
+
+        if (
+            $pdo->inTransaction()
+        ) {
+            $pdo->rollBack();
+        }
+
+        fail(
+            $e->getMessage(),
+
+            $e->getMessage()
+                === 'Seller vehicle not found'
+                ? 404
+                : 422
+        );
+    }
+
+    out([
+        'message' =>
+            'Vehicle approved successfully',
+
+        'vehicle' => [
+            'id' =>
+                $carId,
+
+            'approvalStatus' =>
+                'approved'
+        ]
+    ]);
+}
+
+
+/*
+|--------------------------------------------------------------------------
+| ADMIN - REJECT SELLER VEHICLE
+|--------------------------------------------------------------------------
+*/
+
+if (
+    preg_match(
+        '#^admin/seller-vehicles/(\d+)/reject$#',
+        $route,
+        $matches
+    )
+    &&
+    $method === 'PATCH'
+) {
+
+    requirePermission(
+        $pdo,
+        'seller_vehicles.review'
+    );
+
+    $adminPayload =
+        admin();
+
+    $adminId =
+        (int)(
+            $adminPayload['sub']
+            ?? 0
+        );
+
+    $carId =
+        (int)$matches[1];
+
+    $b =
+        body();
+
+    $reason =
+        trim(
+            (string)(
+                $b['reason']
+                ?? ''
+            )
+        );
+
+    if ($reason === '') {
+        fail(
+            'Rejection reason is required',
+            422
+        );
+    }
+
+    if (
+        strlen($reason)
+        > 500
+    ) {
+        fail(
+            'Rejection reason is too long',
+            422
+        );
+    }
+
+
+    $pdo->beginTransaction();
+
+    try {
+
+        /*
+        |--------------------------------------------------------------------------
+        | LOCK VEHICLE
+        |--------------------------------------------------------------------------
+        */
+
+        $statement =
+            $pdo->prepare(
+                'SELECT
+                    id,
+                    seller_id,
+                    approval_status
+
+                 FROM cars
+
+                 WHERE id = ?
+                   AND seller_id IS NOT NULL
+
+                 LIMIT 1
+                 FOR UPDATE'
+            );
+
+        $statement->execute([
+            $carId
+        ]);
+
+        $vehicle =
+            $statement->fetch();
+
+        if (!$vehicle) {
+            throw new RuntimeException(
+                'Seller vehicle not found'
+            );
+        }
+
+        if (
+            $vehicle['approval_status']
+            !== 'pending'
+        ) {
+            throw new RuntimeException(
+                'Vehicle has already been reviewed'
+            );
+        }
+
+
+        /*
+        |--------------------------------------------------------------------------
+        | REJECT
+        |--------------------------------------------------------------------------
+        */
+
+        $updateStatement =
+            $pdo->prepare(
+                'UPDATE cars
+
+                 SET
+                    approval_status = \'rejected\',
+                    rejection_reason = ?,
+                    reviewed_at = CURRENT_TIMESTAMP,
+                    reviewed_by = ?
+
+                 WHERE id = ?
+                   AND seller_id IS NOT NULL'
+            );
+
+        $updateStatement->execute([
+            $reason,
+            $adminId,
+            $carId
+        ]);
+
+        $pdo->commit();
+
+    } catch (Throwable $e) {
+
+        if (
+            $pdo->inTransaction()
+        ) {
+            $pdo->rollBack();
+        }
+
+        fail(
+            $e->getMessage(),
+
+            $e->getMessage()
+                === 'Seller vehicle not found'
+                ? 404
+                : 422
+        );
+    }
+
+    out([
+        'message' =>
+            'Vehicle rejected successfully',
+
+        'vehicle' => [
+            'id' =>
+                $carId,
+
+            'approvalStatus' =>
+                'rejected',
+
+            'rejectionReason' =>
+                $reason
+        ]
+    ]);
+}
 
 /*
 |--------------------------------------------------------------------------
@@ -1124,79 +1568,8 @@ if (
     $car =
         sellerCarRow($car);
 
-    /*
-    |--------------------------------------------------------------------------
-    | GET VARIANTS
-    |--------------------------------------------------------------------------
-    */
-
-    $variantStatement =
-        $pdo->prepare(
-            'SELECT
-                id,
-
-                car_id
-                    AS carId,
-
-                color_name
-                    AS colorName,
-
-                color_hex
-                    AS colorHex,
-
-                thumbnail_url
-                    AS thumbnailUrl,
-
-                model_url
-                    AS modelUrl,
-
-                is_default
-                    AS isDefault,
-
-                sort_order
-                    AS sortOrder
-
-             FROM car_variants
-
-             WHERE car_id = ?
-
-             ORDER BY
-                sort_order ASC,
-                id ASC'
-        );
-
-    $variantStatement->execute([
-        $carId
-    ]);
-
-    $variants =
-        $variantStatement->fetchAll();
-
-    foreach (
-        $variants
-        as &$variant
-    ) {
-        $variant['id'] =
-            (int)$variant['id'];
-
-        $variant['carId'] =
-            (int)$variant['carId'];
-
-        $variant['isDefault'] =
-            (bool)$variant['isDefault'];
-
-        $variant['sortOrder'] =
-            (int)$variant['sortOrder'];
-    }
-
-    unset($variant);
-
-    $car['variants'] =
-        $variants;
-
     out($car);
 }
-
 
 /*
 |--------------------------------------------------------------------------
@@ -1209,426 +1582,158 @@ if (
     &&
     $method === 'POST'
 ) {
-
-    $seller =
-        approvedSeller($pdo);
-
+    $seller = approvedSeller($pdo);
     $b = body();
 
-    $name =
-        trim(
-            (string)(
-                $b['name']
-                ?? ''
-            )
-        );
-
-    $brandId =
-        (int)(
-            $b['brandId']
-            ?? 0
-        );
-
-    $year =
-        (int)(
-            $b['year']
-            ?? 0
-        );
-
-    $price =
-        (int)(
-            $b['price']
-            ?? 0
-        );
-
-    $description =
-        trim(
-            (string)(
-                $b['description']
-                ?? ''
-            )
-        );
+    $name = trim((string)($b['name'] ?? ''));
+    $brandId = (int)($b['brandId'] ?? 0);
+    $year = (int)($b['year'] ?? 0);
+    $price = (int)($b['price'] ?? 0);
+    $color = trim((string)($b['color'] ?? ''));
+    $colorHex = trim((string)($b['colorHex'] ?? ''));
+    $description = trim((string)($b['description'] ?? ''));
+    $thumbnail = trim((string)($b['thumbnail'] ?? ''));
+    $modelPath = trim((string)($b['modelPath'] ?? ''));
 
     $images =
-        isset($b['images'])
-        &&
-        is_array($b['images'])
-            ? array_values(
-                array_filter(
-                    $b['images'],
-                    'is_string'
-                )
-            )
+        isset($b['images']) && is_array($b['images'])
+            ? array_values(array_filter($b['images'], 'is_string'))
             : [];
 
     $specs =
-        isset($b['specs'])
-        &&
-        is_array($b['specs'])
+        isset($b['specs']) && is_array($b['specs'])
             ? $b['specs']
             : [];
 
     $features =
-        isset($b['features'])
-        &&
-        is_array($b['features'])
+        isset($b['features']) && is_array($b['features'])
             ? $b['features']
             : [];
 
-    $variants =
-        isset($b['variants'])
-        &&
-        is_array($b['variants'])
-            ? $b['variants']
-            : [];
-
-
-    /*
-    |--------------------------------------------------------------------------
-    | VALIDATION
-    |--------------------------------------------------------------------------
-    */
-
     if ($name === '') {
-        fail(
-            'Vehicle name is required',
-            422
-        );
+        fail('Vehicle name is required', 422);
     }
 
     if ($brandId <= 0) {
-        fail(
-            'Brand is required',
-            422
-        );
+        fail('Brand is required', 422);
     }
 
-    if (
-        $year < 1950
-        ||
-        $year > 2035
-    ) {
-        fail(
-            'Invalid model year',
-            422
-        );
+    if ($year < 1950 || $year > 2035) {
+        fail('Invalid model year', 422);
     }
 
     if ($price < 1000) {
-        fail(
-            'Invalid vehicle price',
-            422
-        );
+        fail('Invalid vehicle price', 422);
     }
 
-    if (
-        strlen($description)
-        < 10
-    ) {
-        fail(
-            'Description must contain at least 10 characters',
-            422
-        );
+    if (strlen($description) < 10) {
+        fail('Description must contain at least 10 characters', 422);
     }
 
-    if (
-        count($images)
-        > 10
-    ) {
-        fail(
-            'Maximum 10 gallery images',
-            422
-        );
+    if (count($images) > 10) {
+        fail('Maximum 10 gallery images', 422);
     }
 
-    if (
-        count($variants)
-        === 0
-    ) {
-        fail(
-            'At least one color variant is required',
-            422
-        );
+    if ($color === '') {
+        fail('Vehicle color is required', 422);
     }
 
-    $defaultVariants =
-        array_filter(
-            $variants,
-            fn ($variant) =>
-                !empty(
-                    $variant['isDefault']
-                )
-        );
-
-    if (
-        count($defaultVariants)
-        !== 1
-    ) {
-        fail(
-            'Exactly one default color is required',
-            422
-        );
+    if (!preg_match('/^#[0-9a-fA-F]{6}$/', $colorHex)) {
+        fail('Invalid vehicle color', 422);
     }
 
-    $defaultVariant =
-        array_values(
-            $defaultVariants
-        )[0];
+    if ($thumbnail === '') {
+        fail('Vehicle image is required', 422);
+    }
 
+    if ($modelPath === '') {
+        fail('3D model is required', 422);
+    }
 
-    /*
-    |--------------------------------------------------------------------------
-    | CREATE
-    |--------------------------------------------------------------------------
-    */
+    if (!str_starts_with($thumbnail, 'http://localhost/seller-img/')) {
+        fail('Invalid seller image URL', 422);
+    }
+
+    if (!str_starts_with($modelPath, 'http://localhost/seller-car-storage/')) {
+        fail('Invalid seller model URL', 422);
+    }
+
+    foreach ($images as $image) {
+        if (!str_starts_with($image, 'http://localhost/seller-img/')) {
+            fail('Invalid seller gallery image URL', 422);
+        }
+    }
 
     $pdo->beginTransaction();
 
     try {
-
-        $statement =
-            $pdo->prepare(
-                'INSERT INTO cars
-                (
-                    seller_id,
-                    approval_status,
-                    rejection_reason,
-                    reviewed_at,
-                    reviewed_by,
-
-                    name,
-                    brand_id,
-                    year,
-                    price,
-                    color,
-                    color_hex,
-                    description,
-                    thumbnail,
-                    images,
-                    model_path,
-                    featured,
-                    specs,
-                    features
-                )
-
-                VALUES
-                (
-                    ?,
-                    \'pending\',
-                    NULL,
-                    NULL,
-                    NULL,
-
-                    ?,?,?,?,?,?,?,?,?,?,?,?,?
-                )'
-            );
+        $statement = $pdo->prepare(
+            'INSERT INTO cars
+            (
+                seller_id,
+                approval_status,
+                rejection_reason,
+                reviewed_at,
+                reviewed_by,
+                name,
+                brand_id,
+                year,
+                price,
+                color,
+                color_hex,
+                description,
+                thumbnail,
+                images,
+                model_path,
+                featured,
+                specs,
+                features
+            )
+            VALUES
+            (
+                ?,
+                \'pending\',
+                NULL,
+                NULL,
+                NULL,
+                ?,?,?,?,?,?,?,?,?,?,?,?,?
+            )'
+        );
 
         $statement->execute([
             $seller['id'],
-
             $name,
             $brandId,
             $year,
             $price,
-
-            $defaultVariant['colorName']
-                ?? '',
-
-            $defaultVariant['colorHex']
-                ?? '#8a8d91',
-
+            $color,
+            $colorHex,
             $description,
-
-            $defaultVariant['thumbnailUrl']
-                ?? '',
-
-            json_encode(
-                $images,
-                JSON_UNESCAPED_SLASHES
-            ),
-
-            $defaultVariant['modelUrl']
-                ?? null,
-
+            $thumbnail,
+            json_encode($images, JSON_UNESCAPED_SLASHES),
+            $modelPath,
             0,
-
-            json_encode(
-                $specs,
-                JSON_UNESCAPED_SLASHES
-            ),
-
-            json_encode(
-                $features,
-                JSON_UNESCAPED_SLASHES
-            ),
+            json_encode($specs, JSON_UNESCAPED_SLASHES),
+            json_encode($features, JSON_UNESCAPED_SLASHES),
         ]);
 
-
-        $carId =
-            (int)$pdo->lastInsertId();
-
-
-        /*
-        |--------------------------------------------------------------------------
-        | CREATE VARIANTS
-        |--------------------------------------------------------------------------
-        */
-
-        $variantStatement =
-            $pdo->prepare(
-                'INSERT INTO car_variants
-                (
-                    car_id,
-                    color_name,
-                    color_hex,
-                    thumbnail_url,
-                    model_url,
-                    is_default,
-                    sort_order
-                )
-                VALUES
-                (
-                    ?,?,?,?,?,?,?
-                )'
-            );
-
-        foreach (
-            $variants
-            as $index => $variant
-        ) {
-
-            $colorName =
-                trim(
-                    (string)(
-                        $variant['colorName']
-                        ?? ''
-                    )
-                );
-
-            $colorHex =
-                trim(
-                    (string)(
-                        $variant['colorHex']
-                        ?? ''
-                    )
-                );
-
-            $thumbnailUrl =
-                trim(
-                    (string)(
-                        $variant['thumbnailUrl']
-                        ?? ''
-                    )
-                );
-
-            $modelUrl =
-                trim(
-                    (string)(
-                        $variant['modelUrl']
-                        ?? ''
-                    )
-                );
-
-            if ($colorName === '') {
-                throw new RuntimeException(
-                    'Variant color name is required'
-                );
-            }
-
-            if (
-                !preg_match(
-                    '/^#[0-9a-fA-F]{6}$/',
-                    $colorHex
-                )
-            ) {
-                throw new RuntimeException(
-                    'Invalid variant color hex'
-                );
-            }
-
-            if ($thumbnailUrl === '') {
-                throw new RuntimeException(
-                    'Variant image is required'
-                );
-            }
-
-            if ($modelUrl === '') {
-                throw new RuntimeException(
-                    'Variant 3D model is required'
-                );
-            }
-
-            /*
-            |------------------------------------------------------------------
-            | SELLER MUST USE SELLER STORAGE
-            |------------------------------------------------------------------
-            */
-
-            if (
-                !str_starts_with(
-                    $thumbnailUrl,
-                    'http://localhost/seller-img/'
-                )
-            ) {
-                throw new RuntimeException(
-                    'Invalid seller image URL'
-                );
-            }
-
-            if (
-                !str_starts_with(
-                    $modelUrl,
-                    'http://localhost/seller-car-storage/'
-                )
-            ) {
-                throw new RuntimeException(
-                    'Invalid seller model URL'
-                );
-            }
-
-            $variantStatement->execute([
-                $carId,
-                $colorName,
-                $colorHex,
-                $thumbnailUrl,
-                $modelUrl,
-
-                !empty(
-                    $variant['isDefault']
-                )
-                    ? 1
-                    : 0,
-
-                $index,
-            ]);
-        }
+        $carId = (int)$pdo->lastInsertId();
 
         $pdo->commit();
 
         out(
             [
-                'message' =>
-                    'Vehicle submitted for review',
-
+                'message' => 'Vehicle submitted for review',
                 'vehicle' => [
-                    'id' =>
-                        $carId,
-
-                    'sellerId' =>
-                        $seller['id'],
-
-                    'approvalStatus' =>
-                        'pending'
+                    'id' => $carId,
+                    'sellerId' => $seller['id'],
+                    'approvalStatus' => 'pending'
                 ]
             ],
             201
         );
-
     } catch (Throwable $e) {
-
-        if (
-            $pdo->inTransaction()
-        ) {
+        if ($pdo->inTransaction()) {
             $pdo->rollBack();
         }
 
@@ -1658,483 +1763,205 @@ if (
     &&
     $method === 'PUT'
 ) {
-
-    $seller =
-        approvedSeller($pdo);
-
-    $carId =
-        (int)$matches[1];
-
+    $seller = approvedSeller($pdo);
+    $carId = (int)$matches[1];
     $b = body();
 
-    /*
-    |--------------------------------------------------------------------------
-    | GET CURRENT CAR
-    |--------------------------------------------------------------------------
-    */
-
-    $currentStatement =
-        $pdo->prepare(
-            'SELECT *
-             FROM cars
-             WHERE id = ?
-               AND seller_id = ?
-             LIMIT 1'
-        );
+    $currentStatement = $pdo->prepare(
+        'SELECT *
+         FROM cars
+         WHERE id = ?
+           AND seller_id = ?
+         LIMIT 1'
+    );
 
     $currentStatement->execute([
         $carId,
         $seller['id']
     ]);
 
-    $currentCar =
-        $currentStatement->fetch();
+    $currentCar = $currentStatement->fetch();
 
     if (!$currentCar) {
-        fail(
-            'Vehicle not found',
-            404
-        );
+        fail('Vehicle not found', 404);
     }
-
-
-    /*
-    |--------------------------------------------------------------------------
-    | OLD FILES
-    |--------------------------------------------------------------------------
-    */
 
     $oldFiles = [];
 
-    if (
-        !empty(
-            $currentCar['thumbnail']
-        )
-    ) {
-        $oldFiles[] =
-            $currentCar['thumbnail'];
+    if (!empty($currentCar['thumbnail'])) {
+        $oldFiles[] = $currentCar['thumbnail'];
     }
 
-    if (
-        !empty(
-            $currentCar['model_path']
-        )
-    ) {
-        $oldFiles[] =
-            $currentCar['model_path'];
+    if (!empty($currentCar['model_path'])) {
+        $oldFiles[] = $currentCar['model_path'];
     }
 
     $oldImages =
         json_decode(
-            $currentCar['images']
-                ?: '[]',
+            $currentCar['images'] ?: '[]',
             true
         ) ?: [];
 
-    foreach (
-        $oldImages
-        as $oldImage
-    ) {
-        $oldFiles[] =
-            $oldImage;
+    foreach ($oldImages as $oldImage) {
+        $oldFiles[] = $oldImage;
     }
 
-    $oldVariantStatement =
-        $pdo->prepare(
-            'SELECT
-                thumbnail_url,
-                model_url
-             FROM car_variants
-             WHERE car_id = ?'
-        );
+    $oldVariantStatement = $pdo->prepare(
+        'SELECT thumbnail_url, model_url
+         FROM car_variants
+         WHERE car_id = ?'
+    );
 
-    $oldVariantStatement->execute([
-        $carId
-    ]);
+    $oldVariantStatement->execute([$carId]);
 
-    foreach (
-        $oldVariantStatement->fetchAll()
-        as $oldVariant
-    ) {
-
-        if (
-            !empty(
-                $oldVariant['thumbnail_url']
-            )
-        ) {
-            $oldFiles[] =
-                $oldVariant['thumbnail_url'];
+    foreach ($oldVariantStatement->fetchAll() as $oldVariant) {
+        if (!empty($oldVariant['thumbnail_url'])) {
+            $oldFiles[] = $oldVariant['thumbnail_url'];
         }
 
-        if (
-            !empty(
-                $oldVariant['model_url']
-            )
-        ) {
-            $oldFiles[] =
-                $oldVariant['model_url'];
+        if (!empty($oldVariant['model_url'])) {
+            $oldFiles[] = $oldVariant['model_url'];
         }
     }
 
-
-    /*
-    |--------------------------------------------------------------------------
-    | NEW VALUES
-    |--------------------------------------------------------------------------
-    */
-
-    $name =
-        trim(
-            (string)(
-                $b['name']
-                ?? ''
-            )
-        );
-
-    $brandId =
-        (int)(
-            $b['brandId']
-            ?? 0
-        );
-
-    $year =
-        (int)(
-            $b['year']
-            ?? 0
-        );
-
-    $price =
-        (int)(
-            $b['price']
-            ?? 0
-        );
-
-    $description =
-        trim(
-            (string)(
-                $b['description']
-                ?? ''
-            )
-        );
+    $name = trim((string)($b['name'] ?? ''));
+    $brandId = (int)($b['brandId'] ?? 0);
+    $year = (int)($b['year'] ?? 0);
+    $price = (int)($b['price'] ?? 0);
+    $color = trim((string)($b['color'] ?? ''));
+    $colorHex = trim((string)($b['colorHex'] ?? ''));
+    $description = trim((string)($b['description'] ?? ''));
+    $thumbnail = trim((string)($b['thumbnail'] ?? ''));
+    $modelPath = trim((string)($b['modelPath'] ?? ''));
 
     $images =
-        isset($b['images'])
-        &&
-        is_array($b['images'])
-            ? array_values(
-                array_filter(
-                    $b['images'],
-                    'is_string'
-                )
-            )
+        isset($b['images']) && is_array($b['images'])
+            ? array_values(array_filter($b['images'], 'is_string'))
             : [];
 
     $specs =
-        isset($b['specs'])
-        &&
-        is_array($b['specs'])
+        isset($b['specs']) && is_array($b['specs'])
             ? $b['specs']
             : [];
 
     $features =
-        isset($b['features'])
-        &&
-        is_array($b['features'])
+        isset($b['features']) && is_array($b['features'])
             ? $b['features']
             : [];
 
-    $variants =
-        isset($b['variants'])
-        &&
-        is_array($b['variants'])
-            ? $b['variants']
-            : [];
-
-
     if ($name === '') {
-        fail(
-            'Vehicle name is required',
-            422
-        );
+        fail('Vehicle name is required', 422);
     }
 
     if ($brandId <= 0) {
-        fail(
-            'Brand is required',
-            422
-        );
+        fail('Brand is required', 422);
     }
 
-    if (
-        count($variants)
-        === 0
-    ) {
-        fail(
-            'At least one color variant is required',
-            422
-        );
+    if ($year < 1950 || $year > 2035) {
+        fail('Invalid model year', 422);
     }
 
-    $defaultVariants =
-        array_filter(
-            $variants,
-            fn ($variant) =>
-                !empty(
-                    $variant['isDefault']
-                )
-        );
-
-    if (
-        count($defaultVariants)
-        !== 1
-    ) {
-        fail(
-            'Exactly one default color is required',
-            422
-        );
+    if ($price < 1000) {
+        fail('Invalid vehicle price', 422);
     }
 
-    $defaultVariant =
-        array_values(
-            $defaultVariants
-        )[0];
-
-
-    /*
-    |--------------------------------------------------------------------------
-    | NEW FILE REFERENCES
-    |--------------------------------------------------------------------------
-    */
-
-    $newFiles = [];
-
-    foreach (
-        $images
-        as $image
-    ) {
-        $newFiles[] = $image;
+    if (strlen($description) < 10) {
+        fail('Description must contain at least 10 characters', 422);
     }
 
-    foreach (
-        $variants
-        as $variant
-    ) {
+    if (count($images) > 10) {
+        fail('Maximum 10 gallery images', 422);
+    }
 
-        if (
-            !empty(
-                $variant['thumbnailUrl']
-            )
-        ) {
-            $newFiles[] =
-                $variant['thumbnailUrl'];
-        }
+    if ($color === '') {
+        fail('Vehicle color is required', 422);
+    }
 
-        if (
-            !empty(
-                $variant['modelUrl']
-            )
-        ) {
-            $newFiles[] =
-                $variant['modelUrl'];
+    if (!preg_match('/^#[0-9a-fA-F]{6}$/', $colorHex)) {
+        fail('Invalid vehicle color', 422);
+    }
+
+    if ($thumbnail === '') {
+        fail('Vehicle image is required', 422);
+    }
+
+    if ($modelPath === '') {
+        fail('3D model is required', 422);
+    }
+
+    if (!str_starts_with($thumbnail, 'http://localhost/seller-img/')) {
+        fail('Invalid seller image URL', 422);
+    }
+
+    if (!str_starts_with($modelPath, 'http://localhost/seller-car-storage/')) {
+        fail('Invalid seller model URL', 422);
+    }
+
+    foreach ($images as $image) {
+        if (!str_starts_with($image, 'http://localhost/seller-img/')) {
+            fail('Invalid seller gallery image URL', 422);
         }
     }
 
-
-    /*
-    |--------------------------------------------------------------------------
-    | UPDATE DATABASE
-    |--------------------------------------------------------------------------
-    */
+    $newFiles = array_merge(
+        $images,
+        [$thumbnail, $modelPath]
+    );
 
     $pdo->beginTransaction();
 
     try {
-
-        $updateStatement =
-            $pdo->prepare(
-                'UPDATE cars
-                 SET
-                    approval_status = \'pending\',
-                    rejection_reason = NULL,
-                    reviewed_at = NULL,
-                    reviewed_by = NULL,
-
-                    name = ?,
-                    brand_id = ?,
-                    year = ?,
-                    price = ?,
-                    color = ?,
-                    color_hex = ?,
-                    description = ?,
-                    thumbnail = ?,
-                    images = ?,
-                    model_path = ?,
-                    featured = 0,
-                    specs = ?,
-                    features = ?
-
-                 WHERE id = ?
-                   AND seller_id = ?'
-            );
+        $updateStatement = $pdo->prepare(
+            'UPDATE cars
+             SET
+                approval_status = \'pending\',
+                rejection_reason = NULL,
+                reviewed_at = NULL,
+                reviewed_by = NULL,
+                name = ?,
+                brand_id = ?,
+                year = ?,
+                price = ?,
+                color = ?,
+                color_hex = ?,
+                description = ?,
+                thumbnail = ?,
+                images = ?,
+                model_path = ?,
+                featured = 0,
+                specs = ?,
+                features = ?
+             WHERE id = ?
+               AND seller_id = ?'
+        );
 
         $updateStatement->execute([
             $name,
             $brandId,
             $year,
             $price,
-
-            $defaultVariant['colorName']
-                ?? '',
-
-            $defaultVariant['colorHex']
-                ?? '#8a8d91',
-
+            $color,
+            $colorHex,
             $description,
-
-            $defaultVariant['thumbnailUrl']
-                ?? '',
-
-            json_encode(
-                $images,
-                JSON_UNESCAPED_SLASHES
-            ),
-
-            $defaultVariant['modelUrl']
-                ?? null,
-
-            json_encode(
-                $specs,
-                JSON_UNESCAPED_SLASHES
-            ),
-
-            json_encode(
-                $features,
-                JSON_UNESCAPED_SLASHES
-            ),
-
+            $thumbnail,
+            json_encode($images, JSON_UNESCAPED_SLASHES),
+            $modelPath,
+            json_encode($specs, JSON_UNESCAPED_SLASHES),
+            json_encode($features, JSON_UNESCAPED_SLASHES),
             $carId,
             $seller['id']
         ]);
 
+        $deleteVariants = $pdo->prepare(
+            'DELETE FROM car_variants
+             WHERE car_id = ?'
+        );
 
-        /*
-        |--------------------------------------------------------------------------
-        | REBUILD VARIANTS
-        |--------------------------------------------------------------------------
-        */
-
-        $deleteVariants =
-            $pdo->prepare(
-                'DELETE FROM car_variants
-                 WHERE car_id = ?'
-            );
-
-        $deleteVariants->execute([
-            $carId
-        ]);
-
-        $variantStatement =
-            $pdo->prepare(
-                'INSERT INTO car_variants
-                (
-                    car_id,
-                    color_name,
-                    color_hex,
-                    thumbnail_url,
-                    model_url,
-                    is_default,
-                    sort_order
-                )
-                VALUES
-                (
-                    ?,?,?,?,?,?,?
-                )'
-            );
-
-        foreach (
-            $variants
-            as $index => $variant
-        ) {
-
-            $colorName =
-                trim(
-                    (string)(
-                        $variant['colorName']
-                        ?? ''
-                    )
-                );
-
-            $colorHex =
-                trim(
-                    (string)(
-                        $variant['colorHex']
-                        ?? ''
-                    )
-                );
-
-            $thumbnailUrl =
-                trim(
-                    (string)(
-                        $variant['thumbnailUrl']
-                        ?? ''
-                    )
-                );
-
-            $modelUrl =
-                trim(
-                    (string)(
-                        $variant['modelUrl']
-                        ?? ''
-                    )
-                );
-
-            if (
-                $colorName === ''
-                ||
-                $thumbnailUrl === ''
-                ||
-                $modelUrl === ''
-            ) {
-                throw new RuntimeException(
-                    'Incomplete vehicle color'
-                );
-            }
-
-            if (
-                !preg_match(
-                    '/^#[0-9a-fA-F]{6}$/',
-                    $colorHex
-                )
-            ) {
-                throw new RuntimeException(
-                    'Invalid variant color hex'
-                );
-            }
-
-            $variantStatement->execute([
-                $carId,
-                $colorName,
-                $colorHex,
-                $thumbnailUrl,
-                $modelUrl,
-
-                !empty(
-                    $variant['isDefault']
-                )
-                    ? 1
-                    : 0,
-
-                $index
-            ]);
-        }
+        $deleteVariants->execute([$carId]);
 
         $pdo->commit();
-
     } catch (Throwable $e) {
-
-        if (
-            $pdo->inTransaction()
-        ) {
+        if ($pdo->inTransaction()) {
             $pdo->rollBack();
         }
 
@@ -2144,58 +1971,20 @@ if (
         );
     }
 
+    $oldFiles = array_unique(array_filter($oldFiles));
+    $newFiles = array_unique(array_filter($newFiles));
 
-    /*
-    |--------------------------------------------------------------------------
-    | DELETE FILES NO LONGER USED
-    |--------------------------------------------------------------------------
-    |
-    | Only after database update succeeded.
-    |
-    */
-
-    $oldFiles =
-        array_unique(
-            array_filter(
-                $oldFiles
-            )
-        );
-
-    $newFiles =
-        array_unique(
-            array_filter(
-                $newFiles
-            )
-        );
-
-    foreach (
-        $oldFiles
-        as $oldFile
-    ) {
-
-        if (
-            !in_array(
-                $oldFile,
-                $newFiles,
-                true
-            )
-        ) {
-            deleteSellerUpload(
-                $oldFile
-            );
+    foreach ($oldFiles as $oldFile) {
+        if (!in_array($oldFile, $newFiles, true)) {
+            deleteSellerUpload($oldFile);
         }
     }
 
     out([
-        'message' =>
-            'Vehicle updated and submitted for review',
-
+        'message' => 'Vehicle updated and submitted for review',
         'vehicle' => [
-            'id' =>
-                $carId,
-
-            'approvalStatus' =>
-                'pending'
+            'id' => $carId,
+            'approvalStatus' => 'pending'
         ]
     ]);
 }
@@ -2401,5 +2190,494 @@ if (
     out([
         'message' =>
             'Vehicle deleted successfully'
+    ]);
+}
+/*
+|--------------------------------------------------------------------------
+| SELLER - GET VEHICLE TEST DRIVE AVAILABILITY
+|--------------------------------------------------------------------------
+*/
+
+if (
+    preg_match(
+        '#^sellers/cars/(\d+)/availability$#',
+        $route,
+        $matches
+    )
+    &&
+    $method === 'GET'
+) {
+
+    $seller = approvedSeller($pdo);
+
+    $carId = (int)$matches[1];
+
+
+    /*
+    |--------------------------------------------------------------------------
+    | VERIFY VEHICLE OWNERSHIP
+    |--------------------------------------------------------------------------
+    */
+
+    $carStatement = $pdo->prepare(
+        'SELECT id, name
+         FROM cars
+         WHERE id = ?
+           AND seller_id = ?
+         LIMIT 1'
+    );
+
+    $carStatement->execute([
+        $carId,
+        $seller['id']
+    ]);
+
+    $car = $carStatement->fetch();
+
+    if (!$car) {
+        fail(
+            'Vehicle not found or does not belong to you',
+            404
+        );
+    }
+
+
+    /*
+    |--------------------------------------------------------------------------
+    | GET AVAILABILITY
+    |--------------------------------------------------------------------------
+    */
+
+    $statement = $pdo->prepare(
+        'SELECT
+            id,
+            seller_id AS sellerId,
+            car_id AS carId,
+            day_of_week AS dayOfWeek,
+            start_time AS startTime,
+            end_time AS endTime,
+            slot_duration AS slotDuration,
+            is_active AS isActive,
+            created_at AS createdAt,
+            updated_at AS updatedAt
+
+         FROM seller_test_drive_availability
+
+         WHERE seller_id = ?
+           AND car_id = ?
+
+         ORDER BY
+            day_of_week ASC,
+            start_time ASC'
+    );
+
+    $statement->execute([
+        $seller['id'],
+        $carId
+    ]);
+
+    $availability =
+        $statement->fetchAll();
+
+    foreach ($availability as &$item) {
+
+        $item['id'] =
+            (int)$item['id'];
+
+        $item['sellerId'] =
+            (int)$item['sellerId'];
+
+        $item['carId'] =
+            (int)$item['carId'];
+
+        $item['dayOfWeek'] =
+            (int)$item['dayOfWeek'];
+
+        $item['slotDuration'] =
+            (int)$item['slotDuration'];
+
+        $item['isActive'] =
+            (bool)$item['isActive'];
+    }
+
+    unset($item);
+
+    out([
+        'car' => [
+            'id' => (int)$car['id'],
+            'name' => $car['name']
+        ],
+
+        'availability' =>
+            $availability
+    ]);
+}
+
+
+/*
+|--------------------------------------------------------------------------
+| SELLER - ADD VEHICLE TEST DRIVE AVAILABILITY
+|--------------------------------------------------------------------------
+*/
+
+if (
+    preg_match(
+        '#^sellers/cars/(\d+)/availability$#',
+        $route,
+        $matches
+    )
+    &&
+    $method === 'POST'
+) {
+
+    $seller = approvedSeller($pdo);
+
+    $carId =
+        (int)$matches[1];
+
+    $b = body();
+
+
+    /*
+    |--------------------------------------------------------------------------
+    | VERIFY VEHICLE OWNERSHIP
+    |--------------------------------------------------------------------------
+    */
+
+    $carStatement = $pdo->prepare(
+        'SELECT
+            id,
+            name,
+            approval_status
+
+         FROM cars
+
+         WHERE id = ?
+           AND seller_id = ?
+
+         LIMIT 1'
+    );
+
+    $carStatement->execute([
+        $carId,
+        $seller['id']
+    ]);
+
+    $car =
+        $carStatement->fetch();
+
+    if (!$car) {
+        fail(
+            'Vehicle not found or does not belong to you',
+            404
+        );
+    }
+
+
+    /*
+    |--------------------------------------------------------------------------
+    | INPUT
+    |--------------------------------------------------------------------------
+    */
+
+    $dayOfWeek =
+        (int)($b['dayOfWeek'] ?? -1);
+
+    $startTime =
+        trim(
+            (string)(
+                $b['startTime']
+                ?? ''
+            )
+        );
+
+    $endTime =
+        trim(
+            (string)(
+                $b['endTime']
+                ?? ''
+            )
+        );
+
+    $slotDuration =
+        (int)(
+            $b['slotDuration']
+            ?? 30
+        );
+
+
+    /*
+    |--------------------------------------------------------------------------
+    | VALIDATION
+    |--------------------------------------------------------------------------
+    */
+
+    if (
+        $dayOfWeek < 0
+        ||
+        $dayOfWeek > 6
+    ) {
+        fail(
+            'Invalid day of week',
+            422
+        );
+    }
+
+    if (
+        !preg_match(
+            '/^\d{2}:\d{2}$/',
+            $startTime
+        )
+    ) {
+        fail(
+            'Invalid start time',
+            422
+        );
+    }
+
+    if (
+        !preg_match(
+            '/^\d{2}:\d{2}$/',
+            $endTime
+        )
+    ) {
+        fail(
+            'Invalid end time',
+            422
+        );
+    }
+
+    if (
+        strtotime($endTime)
+        <=
+        strtotime($startTime)
+    ) {
+        fail(
+            'End time must be after start time',
+            422
+        );
+    }
+
+    if (
+        $slotDuration < 15
+        ||
+        $slotDuration > 180
+    ) {
+        fail(
+            'Slot duration must be between 15 and 180 minutes',
+            422
+        );
+    }
+
+
+    /*
+    |--------------------------------------------------------------------------
+    | CHECK DUPLICATE / OVERLAPPING AVAILABILITY
+    |--------------------------------------------------------------------------
+    */
+
+    $overlapStatement =
+        $pdo->prepare(
+            'SELECT id
+
+             FROM seller_test_drive_availability
+
+             WHERE seller_id = ?
+               AND car_id = ?
+               AND day_of_week = ?
+               AND is_active = 1
+
+               AND (
+                    start_time < ?
+                    AND end_time > ?
+               )
+
+             LIMIT 1'
+        );
+
+    $overlapStatement->execute([
+        $seller['id'],
+        $carId,
+        $dayOfWeek,
+        $endTime,
+        $startTime
+    ]);
+
+    if (
+        $overlapStatement->fetch()
+    ) {
+        fail(
+            'This availability overlaps with an existing time range',
+            409
+        );
+    }
+
+
+    /*
+    |--------------------------------------------------------------------------
+    | CREATE AVAILABILITY
+    |--------------------------------------------------------------------------
+    */
+
+    $statement =
+        $pdo->prepare(
+            'INSERT INTO seller_test_drive_availability
+            (
+                seller_id,
+                car_id,
+                day_of_week,
+                start_time,
+                end_time,
+                slot_duration,
+                is_active
+            )
+
+            VALUES
+            (
+                ?, ?, ?, ?, ?, ?, 1
+            )'
+        );
+
+    $statement->execute([
+        $seller['id'],
+        $carId,
+        $dayOfWeek,
+        $startTime,
+        $endTime,
+        $slotDuration
+    ]);
+
+    $availabilityId =
+        (int)$pdo->lastInsertId();
+
+    out(
+        [
+            'message' =>
+                'Availability added successfully',
+
+            'availability' => [
+                'id' =>
+                    $availabilityId,
+
+                'sellerId' =>
+                    $seller['id'],
+
+                'carId' =>
+                    $carId,
+
+                'dayOfWeek' =>
+                    $dayOfWeek,
+
+                'startTime' =>
+                    $startTime,
+
+                'endTime' =>
+                    $endTime,
+
+                'slotDuration' =>
+                    $slotDuration,
+
+                'isActive' =>
+                    true
+            ]
+        ],
+        201
+    );
+}
+
+
+/*
+|--------------------------------------------------------------------------
+| SELLER - DELETE VEHICLE TEST DRIVE AVAILABILITY
+|--------------------------------------------------------------------------
+*/
+
+if (
+    preg_match(
+        '#^sellers/cars/(\d+)/availability/(\d+)$#',
+        $route,
+        $matches
+    )
+    &&
+    $method === 'DELETE'
+) {
+
+    $seller =
+        approvedSeller($pdo);
+
+    $carId =
+        (int)$matches[1];
+
+    $availabilityId =
+        (int)$matches[2];
+
+
+    /*
+    |--------------------------------------------------------------------------
+    | VERIFY VEHICLE OWNERSHIP
+    |--------------------------------------------------------------------------
+    */
+
+    $carStatement =
+        $pdo->prepare(
+            'SELECT id
+
+             FROM cars
+
+             WHERE id = ?
+               AND seller_id = ?
+
+             LIMIT 1'
+        );
+
+    $carStatement->execute([
+        $carId,
+        $seller['id']
+    ]);
+
+    if (
+        !$carStatement->fetch()
+    ) {
+        fail(
+            'Vehicle not found or does not belong to you',
+            404
+        );
+    }
+
+
+    /*
+    |--------------------------------------------------------------------------
+    | DELETE AVAILABILITY
+    |--------------------------------------------------------------------------
+    */
+
+    $statement =
+        $pdo->prepare(
+            'DELETE
+             FROM seller_test_drive_availability
+
+             WHERE id = ?
+               AND car_id = ?
+               AND seller_id = ?'
+        );
+
+    $statement->execute([
+        $availabilityId,
+        $carId,
+        $seller['id']
+    ]);
+
+    if (
+        $statement->rowCount() === 0
+    ) {
+        fail(
+            'Availability not found',
+            404
+        );
+    }
+
+    out([
+        'message' =>
+            'Availability deleted successfully'
     ]);
 }

@@ -137,6 +137,11 @@ const [galleryFiles, setGalleryFiles] =
 const [galleryPreviews, setGalleryPreviews] =
   useState<string[]>([]);
 
+  // Seller listing = one physical vehicle, one color, one main image and one 3D model.
+  const [sellerThumbnailFile, setSellerThumbnailFile] = useState<File | null>(null);
+  const [sellerThumbnailPreview, setSellerThumbnailPreview] = useState(initial?.thumbnail ?? "");
+  const [sellerModelFile, setSellerModelFile] = useState<File | null>(null);
+
   const thumbInputRef = useRef<HTMLInputElement>(null);
   const galleryInputRef = useRef<HTMLInputElement>(null);
   const modelInputRef = useRef<HTMLInputElement>(null);
@@ -223,23 +228,14 @@ useEffect(() => {
     return;
   }
 
-  const api =
-    ownerType === "seller"
-      ? userApi
-      : adminApi;
+  if (ownerType === "seller") {
+    return;
+  }
 
-  const endpoint =
-    ownerType === "seller"
-      ? `/api/sellers/cars/${initial.id}`
-      : `/api/car-variants?car_id=${initial.id}`;
-
-  api
-    .get(endpoint)
+  adminApi
+    .get(`/api/car-variants?car_id=${initial.id}`)
     .then((response) => {
-      const rows =
-        ownerType === "seller"
-          ? response.data?.data?.variants ?? []
-          : response.data?.data ?? [];
+      const rows = response.data?.data ?? [];
 
       if (!rows.length) {
         return;
@@ -403,6 +399,25 @@ function onVariantUpload(
   );
 }
 
+  function onSellerUpload(
+    kind: "thumbnail" | "model",
+    files: FileList | null
+  ) {
+    const file = files?.[0];
+    if (!file) return;
+
+    if (kind === "thumbnail") {
+      if (sellerThumbnailPreview.startsWith("blob:")) {
+        URL.revokeObjectURL(sellerThumbnailPreview);
+      }
+      setSellerThumbnailFile(file);
+      setSellerThumbnailPreview(URL.createObjectURL(file));
+      return;
+    }
+
+    setSellerModelFile(file);
+  }
+
   function addFeature() {
     const value = featureDraft.trim();
     if (!value) return;
@@ -423,66 +438,47 @@ function onVariantUpload(
     );
   }
 
-  if (!variants.length) {
-    return toast.error(
-      "At least one color is required"
-    );
-  }
-
-  const defaultCount =
-    variants.filter(
-      (variant) =>
-        variant.isDefault
-    ).length;
-
-  if (defaultCount !== 1) {
-    return toast.error(
-      "Choose exactly one default color"
-    );
-  }
-
-  for (
-    let i = 0;
-    i < variants.length;
-    i++
-  ) {
-    const variant =
-      variants[i];
-
-    if (
-      !variant.colorName.trim()
-    ) {
-      return toast.error(
-        `Color ${i + 1}: paint name is required`
-      );
+  if (ownerType === "seller") {
+    if (!form.color.trim()) {
+      return toast.error("Paint name is required");
     }
 
-    if (
-      !/^#[0-9a-fA-F]{6}$/.test(
-        variant.colorHex
-      )
-    ) {
-      return toast.error(
-        `Color ${i + 1}: invalid HEX color`
-      );
+    if (!/^#[0-9a-fA-F]{6}$/.test(form.colorHex)) {
+      return toast.error("Invalid HEX color");
     }
 
-    if (
-      !variant.thumbnailUrl &&
-      !variant.thumbnailFile
-    ) {
-      return toast.error(
-        `Color ${i + 1}: image is required`
-      );
+    if (!form.thumbnail && !sellerThumbnailFile) {
+      return toast.error("Main vehicle image is required");
     }
 
-    if (
-      !variant.modelUrl &&
-      !variant.modelFile
-    ) {
-      return toast.error(
-        `Color ${i + 1}: 3D model is required`
-      );
+    if (!form.modelPath && !sellerModelFile) {
+      return toast.error("3D model is required");
+    }
+  } else {
+    if (!variants.length) {
+      return toast.error("At least one color is required");
+    }
+
+    const defaultCount = variants.filter((variant) => variant.isDefault).length;
+    if (defaultCount !== 1) {
+      return toast.error("Choose exactly one default color");
+    }
+
+    for (let i = 0; i < variants.length; i++) {
+      const variant = variants[i];
+
+      if (!variant.colorName.trim()) {
+        return toast.error(`Color ${i + 1}: paint name is required`);
+      }
+      if (!/^#[0-9a-fA-F]{6}$/.test(variant.colorHex)) {
+        return toast.error(`Color ${i + 1}: invalid HEX color`);
+      }
+      if (!variant.thumbnailUrl && !variant.thumbnailFile) {
+        return toast.error(`Color ${i + 1}: image is required`);
+      }
+      if (!variant.modelUrl && !variant.modelFile) {
+        return toast.error(`Color ${i + 1}: 3D model is required`);
+      }
     }
   }
 
@@ -496,65 +492,44 @@ function onVariantUpload(
      */
 
     const finalVariants = [];
+    let sellerThumbnail = form.thumbnail;
+    let sellerModelPath = form.modelPath;
 
-    for (
-      const variant
-      of variants
-    ) {
-
-      let thumbnailUrl =
-        variant.thumbnailUrl;
-
-      let modelUrl =
-        variant.modelUrl;
-
-
-      if (
-        variant.thumbnailFile
-      ) {
-        const urls =
-          await uploadFiles(
-            [variant.thumbnailFile],
-            ownerType
-          );
-
-        thumbnailUrl =
-          urls[0];
+    if (ownerType === "seller") {
+      if (sellerThumbnailFile) {
+        const urls = await uploadFiles([sellerThumbnailFile], ownerType);
+        sellerThumbnail = urls[0];
       }
 
-
-      if (
-        variant.modelFile
-      ) {
-        const urls =
-          await uploadFiles(
-            [variant.modelFile],
-            ownerType
-          );
-
-        modelUrl =
-          urls[0];
+      if (sellerModelFile) {
+        const urls = await uploadFiles([sellerModelFile], ownerType);
+        sellerModelPath = urls[0];
       }
+    } else {
+      for (const variant of variants) {
+        let thumbnailUrl = variant.thumbnailUrl;
+        let modelUrl = variant.modelUrl;
 
+        if (variant.thumbnailFile) {
+          const urls = await uploadFiles([variant.thumbnailFile], ownerType);
+          thumbnailUrl = urls[0];
+        }
 
-      finalVariants.push({
-        id: variant.id,
+        if (variant.modelFile) {
+          const urls = await uploadFiles([variant.modelFile], ownerType);
+          modelUrl = urls[0];
+        }
 
-        colorName:
-          variant.colorName.trim(),
-
-        colorHex:
-          variant.colorHex,
-
-        thumbnailUrl,
-
-        modelUrl,
-
-        isDefault:
-          variant.isDefault,
-      });
+        finalVariants.push({
+          id: variant.id,
+          colorName: variant.colorName.trim(),
+          colorHex: variant.colorHex,
+          thumbnailUrl,
+          modelUrl,
+          isDefault: variant.isDefault,
+        });
+      }
     }
-
 
     /*
      * Upload NEW gallery images.
@@ -632,8 +607,14 @@ function onVariantUpload(
 
       features,
 
-      variants:
-        finalVariants,
+      ...(ownerType === "seller"
+        ? {
+            color: form.color.trim(),
+            colorHex: form.colorHex,
+            thumbnail: sellerThumbnail,
+            modelPath: sellerModelPath,
+          }
+        : { variants: finalVariants }),
     };
 
 
@@ -869,7 +850,62 @@ function onVariantUpload(
         </div>
       </section>
 
-      {/* ── Color Variants ─────────────────────────────────────── */}
+      {/* ── Vehicle color / media ───────────────────────────────── */}
+      {ownerType === "seller" && (
+        <section className="glass mt-6 rounded-3xl p-6 md:p-8" aria-label="Vehicle color and media">
+          <h2 className="font-display text-sm font-semibold tracking-[0.24em] text-champagne-400 uppercase">
+            Vehicle Color & 3D
+          </h2>
+          <p className="mt-2 text-xs text-zinc-500">
+            This listing represents one physical vehicle, so choose one paint color, one main image and one 3D model.
+          </p>
+
+          <div className="mt-6 grid items-end gap-5 sm:grid-cols-[1fr_1fr_auto]">
+            <label className="block">
+              <span className={labelCls}>Paint name</span>
+              <input required value={form.color} onChange={(e) => set("color", e.target.value)} placeholder="e.g. Volcano Blue" className={cn(inputCls, "mt-2")} />
+            </label>
+            <label className="block">
+              <span className={labelCls}>Hex code</span>
+              <input required value={form.colorHex} onChange={(e) => set("colorHex", e.target.value)} pattern="#[0-9a-fA-F]{6}" placeholder="#3D69A4" className={cn(inputCls, "mt-2 font-mono uppercase")} />
+            </label>
+            <label className="block">
+              <span className={labelCls}>Picker</span>
+              <input type="color" value={/^#[0-9a-fA-F]{6}$/.test(form.colorHex) ? form.colorHex : "#8a8d91"} onChange={(e) => set("colorHex", e.target.value)} className="mt-2 h-[42px] w-16 cursor-pointer rounded-xl border border-white/10 bg-transparent" />
+            </label>
+          </div>
+
+          <div className="mt-6 grid gap-5 md:grid-cols-2">
+            <div>
+              <span className={labelCls}>Main vehicle image *</span>
+              <input ref={thumbInputRef} type="file" accept="image/*" hidden onChange={(e) => onSellerUpload("thumbnail", e.target.files)} />
+              <button type="button" onClick={() => thumbInputRef.current?.click()} className="mt-2 inline-flex items-center gap-2 rounded-xl border border-white/10 px-4 py-2.5 text-xs font-semibold text-zinc-300 hover:border-champagne-400/50 hover:text-champagne-300">
+                <ImagePlus className="size-3.5" /> Upload image
+              </button>
+              {sellerThumbnailPreview && (
+                <div className="mt-3">
+                  <img src={sellerThumbnailPreview} alt="Vehicle" className="h-32 w-52 rounded-xl border border-white/10 object-cover" />
+                  <p className="mt-2 text-xs text-green-400">✓ Image selected</p>
+                </div>
+              )}
+            </div>
+
+            <div>
+              <span className={labelCls}>3D model GLB / GLTF *</span>
+              <input ref={modelInputRef} type="file" accept=".glb,.gltf" hidden onChange={(e) => onSellerUpload("model", e.target.files)} />
+              <button type="button" onClick={() => modelInputRef.current?.click()} className="mt-2 inline-flex items-center gap-2 rounded-xl border border-white/10 px-4 py-2.5 text-xs font-semibold text-zinc-300 hover:border-champagne-400/50 hover:text-champagne-300">
+                <Upload className="size-3.5" /> Upload GLB / GLTF
+              </button>
+              {(sellerModelFile || form.modelPath) && (
+                <p className="mt-3 text-xs text-green-400">✓ 3D model selected</p>
+              )}
+            </div>
+          </div>
+        </section>
+      )}
+
+      {/* ── Color Variants (Admin only) ─────────────────────────── */}
+      {ownerType === "admin" && (
 <section className="glass mt-6 rounded-3xl p-6 md:p-8" aria-label="Factory colors">
   <div className="flex flex-wrap items-center justify-between gap-4">
     <div>
@@ -1102,6 +1138,7 @@ function onVariantUpload(
     ))}
   </div>
 </section>
+      )}
 
       {/* ── Story ──────────────────────────────────────────────── */}
       <section className="glass mt-6 rounded-3xl p-6 md:p-8" aria-label="Description">

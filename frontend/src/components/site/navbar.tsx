@@ -26,6 +26,7 @@ export function Navbar() {
   name: string;
   email: string;
   phone: string;
+  sellerStatus?: string;
 } | null>(null);
   const [adminAccount, setAdminAccount] = useState<{
   name: string;
@@ -46,24 +47,45 @@ export function Navbar() {
     return;
   }
 
-  const storedUser =
-    sessionStorage.getItem("user");
-
   const accessToken =
     sessionStorage.getItem("userAccessToken");
 
-  if (!storedUser || !accessToken) {
+  if (!accessToken) {
     setUserAccount(null);
     return;
   }
 
-  try {
-    const parsedUser = JSON.parse(storedUser);
+  axios
+    .get("/api/auth/profile", {
+      headers: {
+        Authorization: `Bearer ${accessToken}`,
+      },
+    })
+    .then((response) => {
+      const user =
+        response.data?.data?.user;
 
-    setUserAccount(parsedUser);
-  } catch {
-    setUserAccount(null);
-  }
+      if (!user) {
+        setUserAccount(null);
+        return;
+      }
+
+      setUserAccount(user);
+
+      // Keep sessionStorage updated too
+      sessionStorage.setItem(
+        "user",
+        JSON.stringify(user)
+      );
+    })
+    .catch((error) => {
+      console.error(
+        "NAVBAR PROFILE ERROR:",
+        error
+      );
+
+      setUserAccount(null);
+    });
 }, [pathname, isAdmin]);
   useEffect(() => {
   if (!isAdmin || isAdminLogin) {
@@ -305,14 +327,30 @@ if (isAdmin && !isAdminLogin) {
       {profileOpen && (
         <div className="absolute right-0 top-14 z-50 w-60 overflow-hidden rounded-2xl border border-white/10 bg-obsidian-900/95 shadow-2xl backdrop-blur-xl">
           <div className="border-b border-white/[0.07] px-4 py-4">
-            <p className="truncate text-sm font-semibold text-zinc-100">
-              {userAccount.name}
-            </p>
 
-            <p className="mt-1 truncate text-xs text-zinc-500">
-              {userAccount.email}
-            </p>
-          </div>
+  <div className="flex items-center justify-between gap-3">
+    <p className="truncate text-sm font-semibold text-zinc-100">
+      {userAccount.name}
+    </p>
+
+    <span
+      className={
+        userAccount.sellerStatus === "approved"
+          ? "shrink-0 rounded-full border border-champagne-400/30 bg-champagne-400/10 px-2.5 py-1 text-[9px] font-bold uppercase tracking-[0.15em] text-champagne-300"
+          : "shrink-0 rounded-full border border-white/10 bg-white/[0.04] px-2.5 py-1 text-[9px] font-bold uppercase tracking-[0.15em] text-zinc-400"
+      }
+    >
+      {userAccount.sellerStatus === "approved"
+        ? "Verified Seller"
+        : "Customer"}
+    </span>
+  </div>
+
+  <p className="mt-1 truncate text-xs text-zinc-500">
+    {userAccount.email}
+  </p>
+
+</div>
 
           <div className="p-2">
             <Link
@@ -332,6 +370,16 @@ if (isAdmin && !isAdminLogin) {
               <Gauge className="size-4" />
               My Test Drives
             </Link>
+            {userAccount.sellerStatus === "approved" && (
+  <Link
+    to="/seller"
+    onClick={() => setProfileOpen(false)}
+    className="flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm text-zinc-300 transition-colors hover:bg-white/5 hover:text-champagne-300"
+  >
+    <Gauge className="size-4" />
+    Seller Studio
+  </Link>
+)}
 
             <div className="my-1 border-t border-white/[0.07]" />
 

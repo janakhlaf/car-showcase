@@ -22,6 +22,12 @@ type Car = {
   name: string;
   year?: number;
   brandName?: string;
+
+  sellerId?: number | null;
+};
+type AvailableSlot = {
+  time: string;
+  durationMinutes: number;
 };
 
 
@@ -46,6 +52,11 @@ export function BookTestDrivePage() {
 
   const [time, setTime] =
     useState("");
+    const [availableSlots, setAvailableSlots] =
+  useState<AvailableSlot[]>([]);
+
+const [loadingSlots, setLoadingSlots] =
+  useState(false);
 
   const [notes, setNotes] =
     useState("");
@@ -119,6 +130,54 @@ export function BookTestDrivePage() {
       });
 
   }, [id, navigate]);
+  async function loadAvailableSlots(
+  selectedDate: string
+) {
+  if (!car || !selectedDate) {
+    setAvailableSlots([]);
+    return;
+  }
+
+  try {
+    setLoadingSlots(true);
+    setError("");
+    setTime("");
+
+    const response =
+      await axios.get(
+        `/api/test-drives/availability/${car.id}`,
+        {
+          params: {
+            date: selectedDate,
+          },
+        }
+      );
+
+    const slots =
+      response.data?.data?.slots ?? [];
+
+    setAvailableSlots(
+      Array.isArray(slots)
+        ? slots
+        : []
+    );
+
+  } catch (error) {
+    console.error(
+      "LOAD TEST DRIVE SLOTS ERROR:",
+      error
+    );
+
+    setAvailableSlots([]);
+
+    setError(
+      "Could not load available test drive times."
+    );
+
+  } finally {
+    setLoadingSlots(false);
+  }
+}
 
 
   /*
@@ -141,13 +200,10 @@ export function BookTestDrivePage() {
     }
 
 
-    if (!branch) {
-      setError(
-        "Please select a branch."
-      );
-
-      return;
-    }
+   if (!car.sellerId && !branch) {
+  setError("Please select a branch.");
+  return;
+}
 
 
     if (!date) {
@@ -377,39 +433,38 @@ navigate("/my-test-drives");
             className="rounded-3xl border border-white/10 bg-white/[0.02] p-6 md:p-8"
           >
 
-            {/* BRANCH */}
+            {/* BRANCH - SITE VEHICLES ONLY */}
 
-            <label className="block">
+{!car.sellerId && (
+  <label className="block">
 
-              <span className="flex items-center gap-2 text-[11px] font-semibold tracking-[0.18em] text-zinc-500 uppercase">
-                <MapPin className="size-4" />
-                Branch
-              </span>
+    <span className="flex items-center gap-2 text-[11px] font-semibold tracking-[0.18em] text-zinc-500 uppercase">
+      <MapPin className="size-4" />
+      Branch
+    </span>
 
-              <select
-                value={branch}
-                onChange={(e) =>
-                  setBranch(
-                    e.target.value
-                  )
-                }
-                className="mt-2 w-full rounded-xl border border-white/10 bg-obsidian-900 px-4 py-3 text-sm text-zinc-200 outline-none focus:border-champagne-400/50"
-              >
-                <option value="">
-                  Select branch
-                </option>
+    <select
+      value={branch}
+      onChange={(e) =>
+        setBranch(e.target.value)
+      }
+      className="mt-2 w-full rounded-xl border border-white/10 bg-obsidian-900 px-4 py-3 text-sm text-zinc-200 outline-none focus:border-champagne-400/50"
+    >
+      <option value="">
+        Select branch
+      </option>
 
-                <option value="nablus">
-                  Nablus
-                </option>
+      <option value="nablus">
+        Nablus
+      </option>
 
-                <option value="ramallah">
-                  Ramallah
-                </option>
-              </select>
+      <option value="ramallah">
+        Ramallah
+      </option>
+    </select>
 
-            </label>
-
+  </label>
+)}
 
             {/* DATE */}
 
@@ -431,9 +486,16 @@ navigate("/my-test-drives");
     e.currentTarget.showPicker?.();
   }}
   onChange={(e) => {
-    setDate(e.target.value);
-    setTime("");
-  }}
+  const selectedDate =
+    e.target.value;
+
+  setDate(selectedDate);
+  setTime("");
+
+  loadAvailableSlots(
+    selectedDate
+  );
+}}
   onKeyDown={(e) => {
     if (e.key !== "Tab") {
       e.preventDefault();
@@ -457,55 +519,83 @@ navigate("/my-test-drives");
 
   <span className="flex items-center gap-2 text-[11px] font-semibold tracking-[0.18em] text-zinc-500 uppercase">
     <Clock3 className="size-4" />
-    Time
+    Available Time
   </span>
 
   <select
     value={time}
+    disabled={
+      !date ||
+      loadingSlots ||
+      availableSlots.length === 0
+    }
     onChange={(e) =>
       setTime(e.target.value)
     }
-    className="mt-2 w-full rounded-xl border border-white/10 bg-obsidian-900 px-4 py-3 text-sm text-zinc-200 outline-none focus:border-champagne-400/50"
+    className="mt-2 w-full rounded-xl border border-white/10 bg-obsidian-900 px-4 py-3 text-sm text-zinc-200 outline-none focus:border-champagne-400/50 disabled:cursor-not-allowed disabled:opacity-50"
   >
+
     <option value="">
-      Select time
+      {loadingSlots
+        ? "Loading available times..."
+        : !date
+        ? "Select a date first"
+        : availableSlots.length === 0
+        ? "No times available for this date"
+        : "Select available time"}
     </option>
 
-    <option value="09:00">
-      09:00 AM
-    </option>
+    {availableSlots.map((slot) => {
 
-    <option value="10:15">
-      10:15 AM
-    </option>
+      const [hours, minutes] =
+        slot.time.split(":");
 
-    <option value="11:30">
-      11:30 AM
-    </option>
+      const timeDate =
+        new Date();
 
-    <option value="12:45">
-      12:45 PM
-    </option>
+      timeDate.setHours(
+        Number(hours),
+        Number(minutes),
+        0,
+        0
+      );
 
-    <option value="14:00">
-      02:00 PM
-    </option>
+      const label =
+        timeDate.toLocaleTimeString(
+          [],
+          {
+            hour: "numeric",
+            minute: "2-digit",
+          }
+        );
 
-    <option value="15:15">
-      03:15 PM
-    </option>
-
-    <option value="16:30">
-      04:30 PM
-    </option>
+      return (
+        <option
+          key={slot.time}
+          value={slot.time}
+        >
+          {label} · {slot.durationMinutes} min
+        </option>
+      );
+    })}
 
   </select>
 
-  <p className="mt-2 text-xs leading-5 text-zinc-500">
-    Each test drive lasts 1 hour. A 15-minute handover
-    period is reserved before the vehicle is available
-    for the next appointment.
-  </p>
+  {date &&
+    !loadingSlots &&
+    availableSlots.length === 0 && (
+      <p className="mt-2 text-xs text-amber-300/80">
+        The vehicle owner has no available
+        test drive times on this date.
+      </p>
+    )}
+
+  {availableSlots.length > 0 && (
+    <p className="mt-2 text-xs leading-5 text-zinc-500">
+      Only times made available by the
+      vehicle owner are shown.
+    </p>
+  )}
 
 </label>
 

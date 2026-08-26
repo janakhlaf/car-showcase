@@ -9,18 +9,21 @@ import { CarDetailPage } from "@/pages/CarDetailPage";
 import { ChangePasswordPage } from "@/components/admin/change-password-page";
 import { VerifyOtpPage } from "./pages/VerifyOtpPage";
 import { SellerDashboardPage } from "@/pages/SellerDashboardPage";
+import { SellerAvailabilityPage } from "@/pages/SellerAvailabilityPage";
+import { SellerTestDrivesPage } from "@/pages/SellerTestDrivesPage";
+import { MessagesPage } from "@/pages/MessagesPage";
 import {
   SellerNewCarPage,
   SellerEditCarPage,
 } from "@/pages/SellerCarPages";
-import {
-  AdminPage,
-  AdminLoginPage,
-  NewCarPage,
-  EditCarPage,
-  AdminTestDrivesPage,
+import { 
+  AdminPage, 
+  AdminLoginPage, 
+  NewCarPage, 
+  EditCarPage, 
+  AdminTestDrivesPage, 
   AdminSellerRequestsPage,
-
+  AdminVehicleReviewsPage,
 } from "@/pages/AdminPages";
 import { AdminUserForm } from "@/components/admin/admin-user-form";
 
@@ -113,6 +116,11 @@ export default function App() {
               path="/admin/seller-requests"
               element={<AdminSellerRequestsPage />}
             />
+
+            <Route
+              path="/admin/vehicle-reviews"
+              element={<AdminVehicleReviewsPage />}
+            />
             <Route
               path="/seller"
               element={<SellerDashboardPage />}
@@ -125,6 +133,14 @@ export default function App() {
             <Route
               path="/seller/cars/:id/edit"
               element={<SellerEditCarPage />}
+            />
+            <Route
+              path="/seller/cars/:id/availability"
+              element={<SellerAvailabilityPage />}
+            />
+            <Route
+              path="/seller/test-drives"
+              element={<SellerTestDrivesPage />}
             />
 
             <Route path="/admin/profile" element={<AdminProfilePage/>}/>
@@ -161,6 +177,10 @@ export default function App() {
             <Route
               path="/my-test-drives"
               element={<MyTestDrivesPage />}
+            />
+            <Route
+              path="/messages/:id"
+              element={<MessagesPage />}
             />
 
           </Routes>

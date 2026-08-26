@@ -27,6 +27,8 @@ import {
   Trash2,
   TriangleAlert,
   Users,
+  ClipboardCheck,
+
 } from "lucide-react";
 import { toast } from "sonner";
 import type { Brand, CarWithBrand } from "@/db/schema";
@@ -173,6 +175,18 @@ export function CarsTable({
   >
     <Store className="size-4" />
     Seller Requests
+  </Link>
+)}
+{(
+  adminRole === "super_admin" ||
+  adminPermissions.includes("seller_vehicles.review")
+) && (
+  <Link
+    to="/admin/vehicle-reviews"
+    className="inline-flex items-center gap-2 rounded-full border border-white/10 px-5 py-3 text-xs font-semibold tracking-[0.14em] text-zinc-300 uppercase transition-colors hover:border-champagne-400/40 hover:text-champagne-300"
+  >
+    <Store className="size-4" />
+    Vehicle Reviews
   </Link>
 )}
 

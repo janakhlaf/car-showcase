@@ -403,6 +403,7 @@ require_once __DIR__ . '/../routes/site-settings.php';
 require_once __DIR__ . '/../routes/auth.php';
 require_once __DIR__ . '/../routes/test-drives.php';
 require_once __DIR__ . '/../routes/sellers.php';
+require_once __DIR__ . '/../routes/messages.php';
 
 
 /* =========================================================
@@ -1974,6 +1975,8 @@ if (
                 SELECT
 
                     c.id,
+                    c.seller_id
+    AS sellerId,
 
                     c.name,
 
