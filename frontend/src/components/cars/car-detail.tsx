@@ -329,6 +329,7 @@ export function CarDetail({
                 ["Power", car.specs.horsepower ? `${car.specs.horsepower} hp` : "—"],
                 ["0–60 mph", car.specs.acceleration ? `${car.specs.acceleration.toFixed(1)} seconds` : "—"],
                 ["Top speed", car.specs.topSpeed ? `${car.specs.topSpeed} mph` : "—"],
+                ["Listed by", car.sellerId ? (car.sellerName || "Verified Seller") : "VELOCE"],
               ].map(([label, value]) => (
                 <div key={label} className="flex items-center justify-between border-b border-white/[0.06] pb-3.5 text-sm last:border-0 last:pb-0">
                   <dt className="text-zinc-500">{label}</dt>

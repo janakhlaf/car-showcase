@@ -18,6 +18,9 @@ export interface CarVariant {
 
 export function CarDetailPage() {
   const { id } = useParams();
+  useEffect(() => {
+  window.scrollTo(0, 0);
+}, [id]);
   const [searchParams] = useSearchParams();
 
   const [car, setCar] = useState<CarWithBrand | null>(null);

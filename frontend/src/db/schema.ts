@@ -7,5 +7,8 @@ export interface CarWithBrand {
   id:number; name:string; brandId:number; brandName:string; year:number; price:number;
   color:string; colorHex:string; description:string; thumbnail:string; images:string[];
   sketchfabUrl?:string|null; modelPath?:string|null; featured:boolean; specs:CarSpecs;
-  features:string[]; createdAt?:string;sellerId?: number | null;
+  features:string[];
+createdAt?:string;
+sellerId?: number | null;
+sellerName?: string | null;
 }

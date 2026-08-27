@@ -137,6 +137,12 @@ const [loadingSlots, setLoadingSlots] =
     setAvailableSlots([]);
     return;
   }
+  // Seller availability applies only to seller-owned cars
+if (!car.sellerId) {
+  setAvailableSlots([]);
+  setTime("");
+  return;
+}
 
   try {
     setLoadingSlots(true);
@@ -486,15 +492,15 @@ navigate("/my-test-drives");
     e.currentTarget.showPicker?.();
   }}
   onChange={(e) => {
-  const selectedDate =
-    e.target.value;
+  const selectedDate = e.target.value;
 
   setDate(selectedDate);
   setTime("");
 
-  loadAvailableSlots(
-    selectedDate
-  );
+  // Seller car → load seller availability
+  if (car.sellerId) {
+    loadAvailableSlots(selectedDate);
+  }
 }}
   onKeyDown={(e) => {
     if (e.key !== "Tab") {
@@ -525,10 +531,11 @@ navigate("/my-test-drives");
   <select
     value={time}
     disabled={
-      !date ||
-      loadingSlots ||
-      availableSlots.length === 0
-    }
+  !date ||
+  (car.sellerId
+    ? loadingSlots || availableSlots.length === 0
+    : false)
+}
     onChange={(e) =>
       setTime(e.target.value)
     }
@@ -536,16 +543,30 @@ navigate("/my-test-drives");
   >
 
     <option value="">
-      {loadingSlots
-        ? "Loading available times..."
-        : !date
-        ? "Select a date first"
-        : availableSlots.length === 0
-        ? "No times available for this date"
-        : "Select available time"}
+      {!date
+  ? "Select a date first"
+  : car.sellerId
+  ? loadingSlots
+    ? "Loading available times..."
+    : availableSlots.length === 0
+    ? "No times available for this date"
+    : "Select available time"
+  : "Select available time"}
     </option>
+    {!car.sellerId && (
+  <>
+    <option value="09:00">9:00 AM</option>
+    <option value="10:15">10:15 AM</option>
+    <option value="11:30">11:30 AM</option>
+    <option value="12:45">12:45 PM</option>
+    <option value="14:00">2:00 PM</option>
+    <option value="15:15">3:15 PM</option>
+    <option value="16:30">4:30 PM</option>
+  </>
+)}
 
-    {availableSlots.map((slot) => {
+    {car.sellerId &&
+  availableSlots.map((slot) => {
 
       const [hours, minutes] =
         slot.time.split(":");
@@ -581,9 +602,10 @@ navigate("/my-test-drives");
 
   </select>
 
-  {date &&
-    !loadingSlots &&
-    availableSlots.length === 0 && (
+  {car.sellerId &&
+  date &&
+  !loadingSlots &&
+  availableSlots.length === 0 && (
       <p className="mt-2 text-xs text-amber-300/80">
         The vehicle owner has no available
         test drive times on this date.

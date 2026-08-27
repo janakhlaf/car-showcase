@@ -118,8 +118,7 @@ userApi.interceptors.response.use(
   (response) => response,
 
   async (error) => {
-    const originalRequest =
-      error.config;
+    const originalRequest = error.config;
 
     if (
       error.response?.status === 401 &&
@@ -132,14 +131,28 @@ userApi.interceptors.response.use(
         await refreshUserAccessToken();
 
       if (newAccessToken) {
-  originalRequest.headers =
-    originalRequest.headers ?? {};
+        originalRequest.headers =
+          originalRequest.headers ?? {};
 
-  originalRequest.headers.Authorization =
-    `Bearer ${newAccessToken}`;
+        originalRequest.headers.Authorization =
+          `Bearer ${newAccessToken}`;
 
-  return userApi(originalRequest);
-}
+        return userApi(originalRequest);
+      }
+
+      sessionStorage.removeItem(
+        "userAccessToken"
+      );
+
+      sessionStorage.removeItem(
+        "userRefreshToken"
+      );
+
+      sessionStorage.removeItem("user");
+
+      window.dispatchEvent(
+        new Event("user-auth-changed")
+      );
     }
 
     console.log(
@@ -150,6 +163,5 @@ userApi.interceptors.response.use(
     return Promise.reject(error);
   }
 );
-
 
 export { userApi };

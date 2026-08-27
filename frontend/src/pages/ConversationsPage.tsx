@@ -116,8 +116,9 @@ export function ConversationsPage() {
           </div>
         ) : (
           <div className="space-y-4">
-            {conversations.map(
-              (conversation) => {
+            {conversations
+  .filter((conversation) => conversation.lastMessage)
+  .map((conversation) => {
                 const otherPerson =
                   currentUserId ===
                   conversation.sellerId

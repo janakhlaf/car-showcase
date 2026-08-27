@@ -1,5 +1,9 @@
 import { useEffect, useState } from "react";
-import { useNavigate, useParams } from "react-router-dom";
+import {
+  Link,
+  useNavigate,
+  useParams,
+} from "react-router-dom";
 import { ArrowLeft, Send, Car, User } from "lucide-react";
 import { toast } from "sonner";
 import { userApi } from "@/lib/user-auth";
@@ -39,88 +43,117 @@ export function MessagesPage() {
   const [loading, setLoading] = useState(true);
   const [sending, setSending] = useState(false);
 
+  // =========================
+  // CURRENT LOGGED-IN USER
+  // =========================
+
+  const currentUser = JSON.parse(
+    sessionStorage.getItem("user") || "null"
+  );
+
+  const currentUserId = currentUser?.id
+    ? Number(currentUser.id)
+    : null;
+
+  // =========================
+  // LOAD CONVERSATION
+  // =========================
+
   const loadConversation = async () => {
-  if (!id) return;
+    if (!id) return;
 
-  try {
-    const response = await userApi.get(
-      `/api/messages/${id}`
-    );
+    try {
+      const response = await userApi.get(
+        `/api/messages/${id}`
+      );
 
-    const data = response.data?.data;
+      const data = response.data?.data;
 
-    setConversation(data?.conversation ?? null);
-    setMessages(data?.messages ?? []);
-  } catch (error: any) {
-    console.error(
-      "LOAD CONVERSATION ERROR:",
-      error
-    );
+      setConversation(
+        data?.conversation ?? null
+      );
 
-    if (error?.response?.status === 401) {
-      toast.error("Please sign in again.");
-      navigate("/login");
-      return;
+      setMessages(
+        data?.messages ?? []
+      );
+    } catch (error: any) {
+      console.error(
+        "LOAD CONVERSATION ERROR:",
+        error
+      );
+
+      if (error?.response?.status === 401) {
+        toast.error("Please sign in again.");
+        navigate("/login");
+        return;
+      }
+
+      toast.error(
+        error?.response?.data?.error ??
+          "Could not load conversation"
+      );
+    } finally {
+      setLoading(false);
     }
-
-    toast.error(
-      error?.response?.data?.error ??
-        "Could not load conversation"
-    );
-  } finally {
-    setLoading(false);
-  }
-};
+  };
 
   useEffect(() => {
     loadConversation();
   }, [id]);
 
+  // =========================
+  // SEND MESSAGE
+  // =========================
+
   const sendMessage = async () => {
-  const message = text.trim();
+    const message = text.trim();
 
-  if (!message || !id || sending) return;
+    if (!message || !id || sending) return;
 
-  setSending(true);
+    setSending(true);
 
-  try {
-    const response = await userApi.post(
-      `/api/messages/${id}`,
-      {
-        message,
-      }
-    );
-
-    const newMessage =
-      response.data?.data?.message;
-
-    if (!newMessage) {
-      throw new Error(
-        "Message could not be sent."
+    try {
+      const response = await userApi.post(
+        `/api/messages/${id}`,
+        {
+          message,
+        }
       );
+
+      const newMessage =
+        response.data?.data?.message;
+
+      if (!newMessage) {
+        throw new Error(
+          "Message could not be sent."
+        );
+      }
+
+      setMessages((current) => [
+        ...current,
+        newMessage,
+      ]);
+
+      setText("");
+    } catch (error: any) {
+      console.error(
+        "SEND MESSAGE ERROR:",
+        error
+      );
+
+      toast.error(
+        error?.response?.data?.error ??
+          error?.message ??
+          "Could not send message"
+      );
+    } finally {
+      setSending(false);
     }
+  };
 
-    setMessages((current) => [
-      ...current,
-      newMessage,
-    ]);
-
-    setText("");
-  } catch (error: any) {
-    console.error(
-      "SEND MESSAGE ERROR:",
-      error
-    );
-
-    toast.error(
-      error?.response?.data?.error ??
-        error?.message ??
-        "Could not send message"
-    );
-  } finally {
-    setSending(false);
-  }
-};
+  // =========================
+  // LOADING
+  // =========================
 
   if (loading) {
     return (
@@ -138,20 +171,28 @@ export function MessagesPage() {
     );
   }
 
+  // =========================
+  // OTHER PERSON NAME
+  // =========================
+
+  const otherPersonName =
+    currentUserId === conversation.customerId
+      ? conversation.sellerName
+      : conversation.customerName;
+
   return (
     <main className="min-h-screen bg-[#08090a] text-white px-6 py-16">
       <div className="mx-auto max-w-4xl">
 
         {/* BACK */}
 
-        <button
-          type="button"
-          onClick={() => navigate(-1)}
-          className="mb-8 flex items-center gap-2 text-xs tracking-[0.18em] uppercase text-white/50 transition hover:text-white"
-        >
-          <ArrowLeft className="size-4" />
-          Back
-        </button>
+        <Link
+  to="/messages"
+  className="mb-8 inline-flex items-center gap-2 text-xs tracking-[0.18em] uppercase text-white/50 transition hover:text-white"
+>
+  <ArrowLeft className="size-4" />
+  Back
+</Link>
 
         {/* HEADER */}
 
@@ -185,6 +226,7 @@ export function MessagesPage() {
                 {conversation.carName}
               </h2>
             </div>
+
           </div>
         </div>
 
@@ -195,6 +237,7 @@ export function MessagesPage() {
           {/* PERSON */}
 
           <div className="flex items-center gap-3 border-b border-white/10 px-6 py-4">
+
             <div className="flex size-9 items-center justify-center rounded-full bg-white/5">
               <User className="size-4 text-white/60" />
             </div>
@@ -205,9 +248,10 @@ export function MessagesPage() {
               </p>
 
               <p className="text-sm font-semibold">
-                {conversation.sellerName}
+                {otherPersonName}
               </p>
             </div>
+
           </div>
 
           {/* MESSAGES */}
@@ -216,23 +260,26 @@ export function MessagesPage() {
 
             {messages.length === 0 ? (
               <div className="flex min-h-[300px] items-center justify-center text-center">
+
                 <div>
                   <p className="font-medium">
                     Start the conversation
                   </p>
 
                   <p className="mt-2 text-sm text-white/40">
-                    Ask the seller a question about this vehicle.
+                    Ask a question about this vehicle.
                   </p>
                 </div>
+
               </div>
             ) : (
-              <div className="space-y-4">
-                {messages.map((message) => {
 
+              <div className="space-y-4">
+
+                {messages.map((message) => {
                   const mine =
-                    message.senderId ===
-                    conversation.customerId;
+                    Number(message.senderId) ===
+                    currentUserId;
 
                   return (
                     <div
@@ -243,6 +290,7 @@ export function MessagesPage() {
                           : "justify-start"
                       }`}
                     >
+
                       <div
                         className={`max-w-[75%] rounded-2xl px-4 py-3 ${
                           mine
@@ -250,6 +298,7 @@ export function MessagesPage() {
                             : "bg-white/[0.07] text-white"
                         }`}
                       >
+
                         <p className="text-sm leading-relaxed">
                           {message.message}
                         </p>
@@ -263,17 +312,21 @@ export function MessagesPage() {
                         >
                           {message.senderName}
                         </p>
+
                       </div>
                     </div>
                   );
                 })}
+
               </div>
             )}
+
           </div>
 
           {/* SEND */}
 
           <div className="border-t border-white/10 p-4">
+
             <div className="flex items-end gap-3">
 
               <textarea
@@ -312,7 +365,9 @@ export function MessagesPage() {
             <p className="mt-2 px-1 text-[10px] text-white/30">
               Press Enter to send · Shift + Enter for a new line
             </p>
+
           </div>
+
         </div>
       </div>
     </main>

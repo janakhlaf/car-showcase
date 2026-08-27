@@ -187,13 +187,21 @@ if (
                 ON seller.id = c.seller_id
 
              WHERE
-                c.customer_id = ?
-                OR
-                c.seller_id = ?
+    (
+        c.customer_id = ?
+        OR
+        c.seller_id = ?
+    )
 
-             ORDER BY
-                COALESCE(lastMessageAt, c.updated_at)
-                DESC'
+    AND EXISTS (
+        SELECT 1
+        FROM messages mx
+        WHERE mx.conversation_id = c.id
+    )
+
+ORDER BY
+    COALESCE(lastMessageAt, c.updated_at)
+DESC'
         );
 
     $statement->execute([
@@ -453,30 +461,90 @@ if (
     }
 
     $check =
-        $pdo->prepare(
-            'SELECT id
-             FROM conversations
-             WHERE id = ?
-               AND (
-                    customer_id = ?
-                    OR
-                    seller_id = ?
-               )
-             LIMIT 1'
-        );
+    $pdo->prepare(
+        'SELECT
+            c.id,
+            c.car_id,
+            c.customer_id,
+            c.seller_id,
 
-    $check->execute([
-        $conversationId,
-        $user['id'],
-        $user['id']
-    ]);
+            car.name AS car_name,
+            car.year AS car_year,
 
-    if (!$check->fetch()) {
-        fail(
-            'Conversation not found',
-            404
-        );
-    }
+            b.name AS brand_name,
+
+            customer.name AS customer_name
+
+         FROM conversations c
+
+         INNER JOIN cars car
+            ON car.id = c.car_id
+
+         INNER JOIN brands b
+            ON b.id = car.brand_id
+
+         INNER JOIN users customer
+            ON customer.id = c.customer_id
+
+         WHERE c.id = ?
+           AND (
+                c.customer_id = ?
+                OR
+                c.seller_id = ?
+           )
+
+         LIMIT 1'
+    );
+
+$check->execute([
+    $conversationId,
+    $user['id'],
+    $user['id']
+]);
+
+$conversationForMessage =
+    $check->fetch();
+
+    if (!$conversationForMessage) {
+    fail(
+        'Conversation not found',
+        404
+    );
+}
+    /*
+|--------------------------------------------------------------------------
+| CHECK IF THIS IS THE FIRST MESSAGE
+|--------------------------------------------------------------------------
+*/
+
+$firstMessageCheck =
+    $pdo->prepare(
+        'SELECT COUNT(*)
+         FROM messages
+         WHERE conversation_id = ?'
+    );
+
+$firstMessageCheck->execute([
+    $conversationId
+]);
+
+$isFirstMessage =
+    (int)$firstMessageCheck->fetchColumn() === 0;
+    $shouldSendWhatsApp =
+    $isFirstMessage
+    &&
+    (int)$conversationForMessage['customer_id']
+        === (int)$user['id'];
+        error_log(
+    'WHATSAPP TEST: first=' .
+    ($isFirstMessage ? 'YES' : 'NO') .
+    ' shouldSend=' .
+    ($shouldSendWhatsApp ? 'YES' : 'NO') .
+    ' customer=' .
+    $conversationForMessage['customer_id'] .
+    ' currentUser=' .
+    $user['id']
+);
 
     $insert =
         $pdo->prepare(
@@ -509,6 +577,53 @@ if (
     $updateConversation->execute([
         $conversationId
     ]);
+    if ($shouldSendWhatsApp) {
+    $sellerStatement =
+        $pdo->prepare(
+            'SELECT
+                name,
+                phone
+             FROM users
+             WHERE id = ?
+             LIMIT 1'
+        );
+
+    $sellerStatement->execute([
+        (int)$conversationForMessage['seller_id']
+    ]);
+
+    $seller =
+        $sellerStatement->fetch();
+
+    if (
+        $seller &&
+        !empty($seller['phone'])
+    ) {
+        $customerName =
+            $conversationForMessage['customer_name'];
+
+        $carName =
+            $conversationForMessage['car_name'];
+
+        $carYear =
+            $conversationForMessage['car_year'];
+
+        $brandName =
+            $conversationForMessage['brand_name'];
+
+        $whatsappMessage =
+            "Hello {$seller['name']},\n\n"
+            . "{$customerName} contacted you about your "
+            . "{$carYear} {$brandName} {$carName} on VELOCE.\n\n"
+            . "Log in to VELOCE to view the message and reply.";
+
+        sendWhatsAppMessage(
+            $seller['phone'],
+            $whatsappMessage
+        );
+    }
+}
+
 
     out(
         [

@@ -520,111 +520,134 @@ if ($sellerId !== null) {
     }
         /*
 |--------------------------------------------------------------------------
-| GET SELLER AVAILABILITY FOR SELECTED SLOT
+| BOOKING RULES
 |--------------------------------------------------------------------------
 */
 
-$dayOfWeek =
-    (int)$dateObject->format('w');
+if ($sellerId !== null) {
 
-$availabilityStatement =
-    $pdo->prepare(
-        'SELECT
-            id,
-            seller_id,
-            start_time,
-            end_time,
-            slot_duration
-         FROM seller_test_drive_availability
-         WHERE car_id = ?
-           AND day_of_week = ?
-           AND is_active = 1
-         ORDER BY start_time ASC'
-    );
+    /*
+    |--------------------------------------------------------------------------
+    | SELLER VEHICLE
+    |--------------------------------------------------------------------------
+    */
 
-$availabilityStatement->execute([
-    $carId,
-    $dayOfWeek
-]);
+    $dayOfWeek =
+        (int)$dateObject->format('w');
 
-$availabilityRows =
-    $availabilityStatement->fetchAll();
-
-$matchedAvailability = null;
-
-foreach ($availabilityRows as $availability) {
-
-    $availableStart =
-        new DateTime(
-            $testDriveDate . ' ' .
-            $availability['start_time']
+    $availabilityStatement =
+        $pdo->prepare(
+            'SELECT
+                id,
+                seller_id,
+                start_time,
+                end_time,
+                slot_duration
+             FROM seller_test_drive_availability
+             WHERE car_id = ?
+               AND seller_id = ?
+               AND day_of_week = ?
+               AND is_active = 1
+             ORDER BY start_time ASC'
         );
 
-    $availableEnd =
-        new DateTime(
-            $testDriveDate . ' ' .
-            $availability['end_time']
-        );
+    $availabilityStatement->execute([
+        $carId,
+        $sellerId,
+        $dayOfWeek
+    ]);
 
-    $slotDuration =
-        (int)$availability['slot_duration'];
+    $availabilityRows =
+        $availabilityStatement->fetchAll();
 
-    if ($slotDuration <= 0) {
-        continue;
-    }
+    $matchedAvailability = null;
 
-    $cursor = clone $availableStart;
+    foreach ($availabilityRows as $availability) {
 
-    while (true) {
+        $availableStart =
+            new DateTime(
+                $testDriveDate . ' ' .
+                $availability['start_time']
+            );
 
-        $slotEnd = clone $cursor;
+        $availableEnd =
+            new DateTime(
+                $testDriveDate . ' ' .
+                $availability['end_time']
+            );
 
-        $slotEnd->modify(
-            '+' . $slotDuration . ' minutes'
-        );
+        $slotDuration =
+            (int)$availability['slot_duration'];
 
-        if ($slotEnd > $availableEnd) {
-            break;
+        if ($slotDuration <= 0) {
+            continue;
         }
 
-        if (
-            $cursor->format('H:i')
-            === $testDriveTime
-        ) {
-            $matchedAvailability =
-                $availability;
+        $cursor =
+            clone $availableStart;
 
-            break 2;
+        while (true) {
+
+            $slotEnd =
+                clone $cursor;
+
+            $slotEnd->modify(
+                '+' . $slotDuration . ' minutes'
+            );
+
+            if ($slotEnd > $availableEnd) {
+                break;
+            }
+
+            if (
+                $cursor->format('H:i')
+                === $testDriveTime
+            ) {
+                $matchedAvailability =
+                    $availability;
+
+                break 2;
+            }
+
+            $cursor->modify(
+                '+' . $slotDuration . ' minutes'
+            );
         }
+    }
 
-        $cursor->modify(
-            '+' . $slotDuration . ' minutes'
+    if (!$matchedAvailability) {
+        fail(
+            'This time is not available for this vehicle.',
+            422
         );
     }
+
+    $testDriveDurationMinutes =
+        (int)$matchedAvailability['slot_duration'];
+
+    // Seller uses their own defined slots.
+    $bufferMinutes = 0;
+
+} else {
+
+    /*
+    |--------------------------------------------------------------------------
+    | VELOCE / ADMIN VEHICLE
+    |--------------------------------------------------------------------------
+    */
+
+    // Original VELOCE booking:
+    // 1 hour test drive + 15 minute buffer.
+    $testDriveDurationMinutes = 60;
+    $bufferMinutes = 15;
 }
 
-if (!$matchedAvailability) {
-    fail(
-        'This time is not available for this vehicle.',
-        422
-    );
-}
 
 /*
 |--------------------------------------------------------------------------
-| BOOKING DURATION
+| CALCULATE BOOKING END / BLOCKED UNTIL
 |--------------------------------------------------------------------------
 */
-
-$testDriveDurationMinutes =
-    (int)$matchedAvailability['slot_duration'];
-
-/*
- * Seller slots are already separated by
- * the selected appointment duration.
- * No additional admin/showroom buffer.
- */
-$bufferMinutes = 0;
 
 $bookingEnd =
     clone $bookingStart;
@@ -637,6 +660,12 @@ $bookingEnd->modify(
 
 $bookingBlockedUntil =
     clone $bookingEnd;
+
+$bookingBlockedUntil->modify(
+    '+' .
+    $bufferMinutes .
+    ' minutes'
+);
 
 
     /*
@@ -808,28 +837,83 @@ sendWhatsAppMessage(
 |--------------------------------------------------------------------------
 */
 
-$adminPhone =
-    getenv('WHATSAPP_ADMIN_PHONE') ?: '';
+if ($sellerId !== null) {
 
-if ($adminPhone !== '') {
+    /*
+    |--------------------------------------------------------------------------
+    | SELLER WHATSAPP
+    |--------------------------------------------------------------------------
+    */
 
-    $adminMessage =
-        "VELOCE - New Test Drive Booking\n\n" .
-        "A new test drive request has been submitted.\n\n" .
-        "Booking ID: #" . $bookingId . "\n" .
-        "Customer: " . $user['name'] . "\n" .
-        "Email: " . $user['email'] . "\n" .
-        "Phone: +" . $user['phone'] . "\n" .
-        "Car: " . $car['name'] . "\n" .
-        "Branch: " . ucfirst($branch) . "\n" .
-        "Date: " . $testDriveDate . "\n" .
-        "Time: " . $testDriveTime . "\n" .
-        "Status: Pending";
+    $sellerStatement =
+        $pdo->prepare(
+            'SELECT
+                name,
+                phone
+             FROM users
+             WHERE id = ?
+             LIMIT 1'
+        );
 
-    sendWhatsAppMessage(
-        $adminPhone,
-        $adminMessage
-    );
+    $sellerStatement->execute([
+        $sellerId
+    ]);
+
+    $seller =
+        $sellerStatement->fetch();
+
+    if (
+        $seller &&
+        !empty($seller['phone'])
+    ) {
+        $sellerMessage =
+            "VELOCE - New Test Drive Request\n\n" .
+            "Hi " . $seller['name'] . ",\n\n" .
+            $user['name'] .
+            " requested a test drive for your vehicle.\n\n" .
+            "Car: " . $car['name'] . "\n" .
+            "Date: " . $testDriveDate . "\n" .
+            "Time: " . $testDriveTime . "\n" .
+            "Status: Pending\n\n" .
+            "Log in to VELOCE to review the request.";
+
+        sendWhatsAppMessage(
+            $seller['phone'],
+            $sellerMessage
+        );
+    }
+
+} else {
+
+    /*
+    |--------------------------------------------------------------------------
+    | VELOCE ADMIN WHATSAPP
+    |--------------------------------------------------------------------------
+    */
+
+    $adminPhone =
+        getenv('WHATSAPP_ADMIN_PHONE') ?: '';
+
+    if ($adminPhone !== '') {
+
+        $adminMessage =
+            "VELOCE - New Test Drive Booking\n\n" .
+            "A new test drive request has been submitted.\n\n" .
+            "Booking ID: #" . $bookingId . "\n" .
+            "Customer: " . $user['name'] . "\n" .
+            "Email: " . $user['email'] . "\n" .
+            "Phone: +" . $user['phone'] . "\n" .
+            "Car: " . $car['name'] . "\n" .
+            "Branch: " . ucfirst($branch) . "\n" .
+            "Date: " . $testDriveDate . "\n" .
+            "Time: " . $testDriveTime . "\n" .
+            "Status: Pending";
+
+        sendWhatsAppMessage(
+            $adminPhone,
+            $adminMessage
+        );
+    }
 }
 
 
@@ -1347,12 +1431,14 @@ if (
 
         FROM test_drive_bookings t
 
-        INNER JOIN cars c
-            ON c.id = t.car_id
+INNER JOIN cars c
+    ON c.id = t.car_id
 
-        ORDER BY
-            t.test_drive_date ASC,
-            t.test_drive_time ASC'
+WHERE t.seller_id IS NULL
+
+ORDER BY
+    t.test_drive_date ASC,
+    t.test_drive_time ASC'
     );
 
     $statement->execute();

@@ -1812,6 +1812,8 @@ if (
 
             c.id,
 
+           c.seller_id AS sellerId,
+
             c.name,
 
             c.brand_id
@@ -1976,7 +1978,8 @@ if (
 
                     c.id,
                     c.seller_id
-    AS sellerId,
+                    AS sellerId,
+                u.name AS sellerName,    
 
                     c.name,
 
@@ -2041,6 +2044,8 @@ if (
 
                 JOIN brands b
                     ON b.id = c.brand_id
+            LEFT JOIN users u
+    ON u.id = c.seller_id
 
 
                 LEFT JOIN car_variants v

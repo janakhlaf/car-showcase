@@ -97,6 +97,9 @@ export function UserLoginForm() {
         "user",
         JSON.stringify(user)
       );
+      window.dispatchEvent(
+  new Event("user-auth-changed")
+);
 
       /*
       |--------------------------------------------------------------------------

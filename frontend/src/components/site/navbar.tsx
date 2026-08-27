@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 import { useLocation } from "react-router-dom";
 import { AnimatePresence, motion } from "framer-motion";
+import { userApi } from "@/lib/user-auth";
 import {
   Gauge,
   Menu,
@@ -27,6 +28,7 @@ export function Navbar() {
   const [scrolled, setScrolled] = useState(false);
   const [open, setOpen] = useState(false);
   const [profileOpen, setProfileOpen] = useState(false);
+  const [unreadCount, setUnreadCount] = useState(0);
   const [userAccount, setUserAccount] = useState<{
   id: number;
   name: string;
@@ -54,19 +56,15 @@ export function Navbar() {
   }
 
   const accessToken =
-    sessionStorage.getItem("userAccessToken");
+  sessionStorage.getItem("userAccessToken");
 
-  if (!accessToken) {
-    setUserAccount(null);
-    return;
-  }
+if (!accessToken) {
+  setUserAccount(null);
+  setProfileOpen(false);
+  return;
+}
 
-  axios
-    .get("/api/auth/profile", {
-      headers: {
-        Authorization: `Bearer ${accessToken}`,
-      },
-    })
+  userApi.get("/api/auth/profile")
     .then((response) => {
       const user =
         response.data?.data?.user;
@@ -93,6 +91,75 @@ export function Navbar() {
       setUserAccount(null);
     });
 }, [pathname, isAdmin]);
+useEffect(() => {
+  const handleAuthChange = () => {
+    const accessToken =
+      sessionStorage.getItem("userAccessToken");
+
+    if (!accessToken) {
+      setUserAccount(null);
+      return;
+    }
+
+    userApi.get("/api/auth/profile")
+      .then((response) => {
+        const user =
+          response.data?.data?.user;
+
+        if (!user) {
+          setUserAccount(null);
+          return;
+        }
+
+        setUserAccount(user);
+
+        sessionStorage.setItem(
+          "user",
+          JSON.stringify(user)
+        );
+      })
+      .catch(() => {
+        setUserAccount(null);
+      });
+  };
+
+  window.addEventListener(
+    "user-auth-changed",
+    handleAuthChange
+  );
+
+  return () => {
+    window.removeEventListener(
+      "user-auth-changed",
+      handleAuthChange
+    );
+  };
+}, []);
+useEffect(() => {
+  if (!userAccount) {
+    setUnreadCount(0);
+    return;
+  }
+
+  const loadUnreadCount = async () => {
+    try {
+      const response = await userApi.get(
+        "/api/messages/unread-count"
+      );
+
+      setUnreadCount(
+        response.data?.data?.unreadCount ?? 0
+      );
+    } catch (error) {
+      console.error(
+        "UNREAD COUNT ERROR:",
+        error
+      );
+    }
+  };
+
+  loadUnreadCount();
+}, [userAccount, pathname]);
   useEffect(() => {
   if (!isAdmin || isAdminLogin) {
     setAdminAccount(null);
@@ -315,9 +382,11 @@ if (isAdmin && !isAdminLogin) {
     >
       <MessageCircle className="size-4.5" />
 
-      <span className="absolute -right-1 -top-1 grid size-5 place-items-center rounded-full bg-champagne-300 text-[10px] font-bold text-obsidian-950">
-        1
-      </span>
+      {unreadCount > 0 && (
+  <span className="absolute -right-1 -top-1 grid min-h-5 min-w-5 place-items-center rounded-full bg-champagne-300 px-1 text-[10px] font-bold text-obsidian-950">
+    {unreadCount > 9 ? "9+" : unreadCount}
+  </span>
+)}
     </Link>
 
     <div className="relative">
@@ -441,6 +510,9 @@ if (isAdmin && !isAdminLogin) {
   );
 
   setUserAccount(null);
+  window.dispatchEvent(
+  new Event("user-auth-changed")
+);
 
   window.location.href = "/";
 }}
