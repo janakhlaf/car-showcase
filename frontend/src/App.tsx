@@ -11,6 +11,7 @@ import { VerifyOtpPage } from "./pages/VerifyOtpPage";
 import { SellerDashboardPage } from "@/pages/SellerDashboardPage";
 import { SellerAvailabilityPage } from "@/pages/SellerAvailabilityPage";
 import { SellerTestDrivesPage } from "@/pages/SellerTestDrivesPage";
+import { ConversationsPage } from "@/pages/ConversationsPage";
 import { MessagesPage } from "@/pages/MessagesPage";
 import {
   SellerNewCarPage,
@@ -181,6 +182,10 @@ export default function App() {
             <Route
               path="/messages/:id"
               element={<MessagesPage />}
+            />
+            <Route
+              path="/messages"
+              element={<ConversationsPage />}
             />
 
           </Routes>

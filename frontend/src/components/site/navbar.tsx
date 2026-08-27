@@ -4,8 +4,14 @@ import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 import { useLocation } from "react-router-dom";
 import { AnimatePresence, motion } from "framer-motion";
-import { Gauge, Menu, X, UserCircle, LogOut } from "lucide-react";
-import { cn } from "@/lib/utils";
+import {
+  Gauge,
+  Menu,
+  X,
+  UserCircle,
+  LogOut,
+  MessageCircle,
+} from "lucide-react";import { cn } from "@/lib/utils";
 import { adminApi } from "@/lib/admin-auth";
 import axios from "axios";
 
@@ -300,6 +306,20 @@ if (isAdmin && !isAdminLogin) {
       </Link>
     </>
   ) : (
+  <div className="flex items-center gap-2">
+
+    <Link
+      to="/messages"
+      className="relative grid size-10 place-items-center rounded-full border border-white/10 bg-white/[0.025] text-zinc-400 transition-all hover:border-champagne-400/40 hover:text-champagne-300"
+      aria-label="Messages"
+    >
+      <MessageCircle className="size-4.5" />
+
+      <span className="absolute -right-1 -top-1 grid size-5 place-items-center rounded-full bg-champagne-300 text-[10px] font-bold text-obsidian-950">
+        1
+      </span>
+    </Link>
+
     <div className="relative">
       <button
         type="button"
@@ -370,6 +390,7 @@ if (isAdmin && !isAdminLogin) {
               <Gauge className="size-4" />
               My Test Drives
             </Link>
+            
             {userAccount.sellerStatus === "approved" && (
   <Link
     to="/seller"
@@ -430,9 +451,10 @@ if (isAdmin && !isAdminLogin) {
             </button>
           </div>
         </div>
-      )}
+            )}
     </div>
-  )}
+  </div>
+)}
 </div>
 
         <button
