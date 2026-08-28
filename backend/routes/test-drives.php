@@ -813,17 +813,31 @@ $bookingId = (int)$pdo->lastInsertId();
 | USER MESSAGE
 |--------------------------------------------------------------------------
 */
+if ($sellerId !== null) {
 
-$userMessage =
-    "VELOCE Test Drive Request\n\n" .
-    "Hi " . $user['name'] . ",\n\n" .
-    "Your test drive request has been submitted successfully.\n\n" .
-    "Car: " . $car['name'] . "\n" .
-    "Branch: " . ucfirst($branch) . "\n" .
-    "Date: " . $testDriveDate . "\n" .
-    "Time: " . $testDriveTime . "\n" .
-    "Status: Pending\n\n" .
-    "We will notify you once your request is reviewed.";
+    $userMessage =
+        "VELOCE Test Drive Request\n\n" .
+        "Hi " . $user['name'] . ",\n\n" .
+        "Your test drive request has been submitted to the seller successfully.\n\n" .
+        "Car: " . $car['name'] . "\n" .
+        "Date: " . $testDriveDate . "\n" .
+        "Time: " . $testDriveTime . "\n" .
+        "Status: Pending\n\n" .
+        "We will notify you once the seller reviews your request.";
+
+} else {
+
+    $userMessage =
+        "VELOCE Test Drive Request\n\n" .
+        "Hi " . $user['name'] . ",\n\n" .
+        "Your test drive request has been submitted successfully.\n\n" .
+        "Car: " . $car['name'] . "\n" .
+        "Branch: " . ucfirst($branch) . "\n" .
+        "Date: " . $testDriveDate . "\n" .
+        "Time: " . $testDriveTime . "\n" .
+        "Status: Pending\n\n" .
+        "We will notify you once your request is reviewed.";
+}
 
 sendWhatsAppMessage(
     $user['phone'],
@@ -1361,6 +1375,22 @@ if ($newStatus === 'completed') {
             $message
         );
     }
+    if ($newStatus === 'completed') {
+
+    $message =
+        "VELOCE Test Drive Completed ✅\n\n" .
+        "Hi " . $booking['name'] . ",\n\n" .
+        "Your test drive with the seller has been completed successfully.\n\n" .
+        "Car: " . $booking['car_name'] . "\n" .
+        "Date: " . $booking['test_drive_date'] . "\n" .
+        "Time: " . $booking['test_drive_time'] . "\n\n" .
+        "Thank you for using VELOCE.";
+
+    sendWhatsAppMessage(
+        $booking['phone'],
+        $message
+    );
+}
 
     out([
         'booking' => [
