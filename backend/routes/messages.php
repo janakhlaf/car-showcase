@@ -535,16 +535,7 @@ $isFirstMessage =
     &&
     (int)$conversationForMessage['customer_id']
         === (int)$user['id'];
-        error_log(
-    'WHATSAPP TEST: first=' .
-    ($isFirstMessage ? 'YES' : 'NO') .
-    ' shouldSend=' .
-    ($shouldSendWhatsApp ? 'YES' : 'NO') .
-    ' customer=' .
-    $conversationForMessage['customer_id'] .
-    ' currentUser=' .
-    $user['id']
-);
+        
 
     $insert =
         $pdo->prepare(

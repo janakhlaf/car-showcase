@@ -15,11 +15,11 @@ export async function refreshUserAccessToken(): Promise<string | null> {
 
   try {
     const response = await axios.post(
-      "/api/auth/refresh",
-      {
-        refreshToken,
-      }
-    );
+  "http://localhost/finalcar/backend/api/index.php?route=auth%2Frefresh",
+  {
+    refreshToken,
+  }
+);
 
     const newAccessToken =
       response.data.data.accessToken;
