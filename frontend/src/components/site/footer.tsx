@@ -1,7 +1,47 @@
+import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
+import axios from "axios";
 import { Gauge, ShieldCheck } from "lucide-react";
 
 export function Footer() {
+  const [footerContent, setFooterContent] = useState({
+    brandDescription: "",
+    exploreTitle: "",
+    atelierTitle: "",
+    addressLine1: "",
+    addressLine2: "",
+    email: "",
+    copyrightText: "",
+    tagline: "",
+  });
+
+  useEffect(() => {
+    async function loadFooterContent() {
+      try {
+        const response = await axios.get("/api/site-settings");
+        const data = response.data.data;
+
+        setFooterContent({
+          brandDescription: data?.footerBrandDescription ?? "",
+          exploreTitle: data?.footerExploreTitle ?? "",
+          atelierTitle: data?.footerAtelierTitle ?? "",
+          addressLine1: data?.footerAddressLine1 ?? "",
+          addressLine2: data?.footerAddressLine2 ?? "",
+          email: data?.footerEmail ?? "",
+          copyrightText: data?.footerCopyrightText ?? "",
+          tagline: data?.footerTagline ?? "",
+        });
+      } catch (error) {
+        console.error(
+          "Could not load footer content:",
+          error
+        );
+      }
+    }
+
+    loadFooterContent();
+  }, []);
+
   return (
     <footer className="relative mt-24 border-t border-white/5">
       <div className="hairline absolute inset-x-0 top-0" />
@@ -14,13 +54,12 @@ export function Footer() {
             <span className="font-display text-lg font-semibold tracking-[0.32em] uppercase">Veloce</span>
           </div>
           <p className="mt-4 max-w-sm text-sm leading-relaxed text-zinc-500">
-            A private showroom for the world&apos;s most coveted performance machines — inspected,
-            authenticated, and presented in interactive 3D, finished in true factory paint.
-          </p>
+  {footerContent.brandDescription}
+</p>
         </div>
 
         <nav aria-label="Footer" className="text-sm">
-          <p className="font-display text-xs font-semibold tracking-[0.28em] text-champagne-400 uppercase">Explore</p>
+          <p className="font-display text-xs font-semibold tracking-[0.28em] text-champagne-400 uppercase">{footerContent.exploreTitle}</p>
           <ul className="mt-4 space-y-2.5 text-zinc-400">
             <li><Link className="transition-colors hover:text-champagne-300" to="/">Showroom</Link></li>
             <li><Link className="transition-colors hover:text-champagne-300" to="/cars">Full Collection</Link></li>
@@ -33,18 +72,21 @@ export function Footer() {
         </nav>
 
         <div className="text-sm">
-          <p className="font-display text-xs font-semibold tracking-[0.28em] text-champagne-400 uppercase">Atelier</p>
+          <p className="font-display text-xs font-semibold tracking-[0.28em] text-champagne-400 uppercase">{footerContent.atelierTitle}</p>
           <ul className="mt-4 space-y-2.5 text-zinc-400">
-            <li>12 Meridian Row, Mayfair</li>
-            <li>London W1K 4QF</li>
-            <li>concierge@veloce.show</li>
+            <li>{footerContent.addressLine1}</li>
+            <li>{footerContent.addressLine2}</li>
+            <li>{footerContent.email}</li>
           </ul>
         </div>
       </div>
 
       <div className="mx-auto flex max-w-7xl flex-col items-center justify-between gap-3 border-t border-white/5 px-5 py-6 text-xs tracking-wide text-zinc-600 sm:flex-row lg:px-8">
-        <p>© {new Date().getFullYear()} Veloce Automobili. All rights reserved.</p>
-        <p className="font-accent italic text-zinc-500">Crafted for those who drive the extraordinary.</p>
+        <p>{footerContent.copyrightText}</p>
+
+<p className="font-accent italic text-zinc-500">
+  {footerContent.tagline}
+</p>
       </div>
     </footer>
   );

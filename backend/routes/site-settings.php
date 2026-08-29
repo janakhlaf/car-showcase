@@ -57,7 +57,74 @@ function saveHomeContent(
         ]);
     }
 }
+function deleteSiteContentImage(?string $url): void
+{
+    if (!$url) {
+        return;
+    }
 
+    $prefix =
+        'http://localhost/site-content-images/';
+
+    /*
+     * لا نحذف روابط خارجية مثل Pexels.
+     */
+    if (
+        !str_starts_with(
+            $url,
+            $prefix
+        )
+    ) {
+        return;
+    }
+
+    $baseDirectory =
+        realpath(
+            'C:/xampp/htdocs/site-content-images'
+        );
+
+    if ($baseDirectory === false) {
+        return;
+    }
+
+    $filename =
+        basename(
+            parse_url(
+                $url,
+                PHP_URL_PATH
+            )
+        );
+
+    if ($filename === '') {
+        return;
+    }
+
+    $filePath =
+        $baseDirectory
+        . DIRECTORY_SEPARATOR
+        . $filename;
+
+    $realFile =
+        realpath(
+            $filePath
+        );
+
+    if (
+        $realFile === false
+        ||
+        !str_starts_with(
+            $realFile,
+            $baseDirectory
+            . DIRECTORY_SEPARATOR
+        )
+    ) {
+        return;
+    }
+
+    if (is_file($realFile)) {
+        unlink($realFile);
+    }
+}
 
 /* =========================================================
    GET SITE SETTINGS + HOME CONTENT
@@ -282,6 +349,41 @@ if (
 
 'privateViewingsImageUrl' =>
     $content['private_viewings']['image_url']
+    ?? '',
+    /*
+ * Footer section
+ */
+
+'footerBrandDescription' =>
+    $content['footer']['brand_description']
+    ?? '',
+
+'footerExploreTitle' =>
+    $content['footer']['explore_title']
+    ?? '',
+
+'footerAtelierTitle' =>
+    $content['footer']['atelier_title']
+    ?? '',
+
+'footerAddressLine1' =>
+    $content['footer']['address_line1']
+    ?? '',
+
+'footerAddressLine2' =>
+    $content['footer']['address_line2']
+    ?? '',
+
+'footerEmail' =>
+    $content['footer']['email']
+    ?? '',
+
+'footerCopyrightText' =>
+    $content['footer']['copyright_text']
+    ?? '',
+
+'footerTagline' =>
+    $content['footer']['tagline']
     ?? '',
     ]);
 }
@@ -821,6 +923,27 @@ if (
      * Save into home_content
      */
 
+    $oldImageStatement = $pdo->prepare(
+    'SELECT content_value
+     FROM home_content
+     WHERE section = ?
+       AND content_key = ?
+     LIMIT 1'
+);
+
+$oldImageStatement->execute([
+    'editorial',
+    'image_url'
+]);
+
+$oldEditorialImageUrl =
+    $oldImageStatement->fetchColumn();
+
+$oldEditorialImageUrl =
+    is_string($oldEditorialImageUrl)
+        ? $oldEditorialImageUrl
+        : null;
+
     $pdo->beginTransaction();
 
     try {
@@ -870,7 +993,17 @@ if (
             ]
         );
 
-        $pdo->commit();
+                $pdo->commit();
+
+        if (
+            $oldEditorialImageUrl
+            &&
+            $oldEditorialImageUrl !== $editorialImageUrl
+        ) {
+            deleteSiteContentImage(
+                $oldEditorialImageUrl
+            );
+        }
 
     } catch (Throwable $e) {
 
@@ -974,6 +1107,27 @@ if (
             422
         );
     }
+    $oldPrivateImageStatement = $pdo->prepare(
+    'SELECT content_value
+     FROM home_content
+     WHERE section = ?
+       AND content_key = ?
+     LIMIT 1'
+);
+
+$oldPrivateImageStatement->execute([
+    'private_viewings',
+    'image_url'
+]);
+
+$oldPrivateViewingsImageUrl =
+    $oldPrivateImageStatement->fetchColumn();
+
+$oldPrivateViewingsImageUrl =
+    is_string($oldPrivateViewingsImageUrl)
+        ? $oldPrivateViewingsImageUrl
+        : null;
+
 
     $pdo->beginTransaction();
 
@@ -1004,6 +1158,15 @@ if (
         );
 
         $pdo->commit();
+        if (
+    $oldPrivateViewingsImageUrl
+    &&
+    $oldPrivateViewingsImageUrl !== $privateViewingsImageUrl
+) {
+    deleteSiteContentImage(
+        $oldPrivateViewingsImageUrl
+    );
+}
 
     } catch (Throwable $e) {
 
@@ -1034,5 +1197,138 @@ if (
 
         'privateViewingsImageUrl' =>
             $privateViewingsImageUrl,
+    ]);
+}
+/* =========================================================
+   UPDATE FOOTER CONTENT
+========================================================= */
+
+if (
+    $route === 'site-settings/footer'
+    &&
+    $method === 'PUT'
+) {
+
+    requirePermission(
+        $pdo,
+        'site_content.edit'
+    );
+
+    $b = body();
+
+    $footerBrandDescription =
+        trim((string)($b['footerBrandDescription'] ?? ''));
+
+    $footerExploreTitle =
+        trim((string)($b['footerExploreTitle'] ?? ''));
+
+    $footerAtelierTitle =
+        trim((string)($b['footerAtelierTitle'] ?? ''));
+
+    $footerAddressLine1 =
+        trim((string)($b['footerAddressLine1'] ?? ''));
+
+    $footerAddressLine2 =
+        trim((string)($b['footerAddressLine2'] ?? ''));
+
+    $footerEmail =
+        trim((string)($b['footerEmail'] ?? ''));
+
+    $footerCopyrightText =
+        trim((string)($b['footerCopyrightText'] ?? ''));
+
+    $footerTagline =
+        trim((string)($b['footerTagline'] ?? ''));
+
+
+    if (
+        $footerBrandDescription === '' ||
+        $footerExploreTitle === '' ||
+        $footerAtelierTitle === '' ||
+        $footerAddressLine1 === '' ||
+        $footerAddressLine2 === '' ||
+        $footerEmail === '' ||
+        $footerCopyrightText === '' ||
+        $footerTagline === ''
+    ) {
+        fail(
+            'All footer fields are required',
+            422
+        );
+    }
+
+
+    $pdo->beginTransaction();
+
+    try {
+
+        saveHomeContent(
+            $pdo,
+            'footer',
+            [
+                'brand_description' =>
+                    $footerBrandDescription,
+
+                'explore_title' =>
+                    $footerExploreTitle,
+
+                'atelier_title' =>
+                    $footerAtelierTitle,
+
+                'address_line1' =>
+                    $footerAddressLine1,
+
+                'address_line2' =>
+                    $footerAddressLine2,
+
+                'email' =>
+                    $footerEmail,
+
+                'copyright_text' =>
+                    $footerCopyrightText,
+
+                'tagline' =>
+                    $footerTagline,
+            ]
+        );
+
+        $pdo->commit();
+
+    } catch (Throwable $e) {
+
+        if ($pdo->inTransaction()) {
+            $pdo->rollBack();
+        }
+
+        throw $e;
+    }
+
+
+    out([
+        'success' => true,
+
+        'footerBrandDescription' =>
+            $footerBrandDescription,
+
+        'footerExploreTitle' =>
+            $footerExploreTitle,
+
+        'footerAtelierTitle' =>
+            $footerAtelierTitle,
+
+        'footerAddressLine1' =>
+            $footerAddressLine1,
+
+        'footerAddressLine2' =>
+            $footerAddressLine2,
+
+        'footerEmail' =>
+            $footerEmail,
+
+        'footerCopyrightText' =>
+            $footerCopyrightText,
+
+        'footerTagline' =>
+            $footerTagline,
     ]);
 }

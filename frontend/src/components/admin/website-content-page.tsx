@@ -66,6 +66,8 @@ const [initialEditorialContent, setInitialEditorialContent] =
 
 const [savingEditorial, setSavingEditorial] =
   useState(false);
+  const [uploadingEditorialImage, setUploadingEditorialImage] =
+  useState(false);
   const [privateViewingContent, setPrivateViewingContent] = useState({
   eyebrow: "",
   title: "",
@@ -86,6 +88,33 @@ const [initialPrivateViewingContent, setInitialPrivateViewingContent] =
   });
 
 const [savingPrivateViewing, setSavingPrivateViewing] =
+  useState(false);
+  const [uploadingPrivateViewingImage, setUploadingPrivateViewingImage] =
+  useState(false);
+  const [footerContent, setFooterContent] = useState({
+  brandDescription: "",
+  exploreTitle: "",
+  atelierTitle: "",
+  addressLine1: "",
+  addressLine2: "",
+  email: "",
+  copyrightText: "",
+  tagline: "",
+});
+
+const [initialFooterContent, setInitialFooterContent] =
+  useState({
+    brandDescription: "",
+    exploreTitle: "",
+    atelierTitle: "",
+    addressLine1: "",
+    addressLine2: "",
+    email: "",
+    copyrightText: "",
+    tagline: "",
+  });
+
+const [savingFooter, setSavingFooter] =
   useState(false);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -253,6 +282,34 @@ const privateViewingValue = {
 
 setPrivateViewingContent(privateViewingValue);
 setInitialPrivateViewingContent(privateViewingValue);
+const footerValue = {
+  brandDescription:
+    settingsResponse.data.data?.footerBrandDescription ?? "",
+
+  exploreTitle:
+    settingsResponse.data.data?.footerExploreTitle ?? "",
+
+  atelierTitle:
+    settingsResponse.data.data?.footerAtelierTitle ?? "",
+
+  addressLine1:
+    settingsResponse.data.data?.footerAddressLine1 ?? "",
+
+  addressLine2:
+    settingsResponse.data.data?.footerAddressLine2 ?? "",
+
+  email:
+    settingsResponse.data.data?.footerEmail ?? "",
+
+  copyrightText:
+    settingsResponse.data.data?.footerCopyrightText ?? "",
+
+  tagline:
+    settingsResponse.data.data?.footerTagline ?? "",
+};
+
+setFooterContent(footerValue);
+setInitialFooterContent(footerValue);
 
       } catch (error) {
         console.error(
@@ -420,7 +477,56 @@ async function saveFeaturedText() {
     setSavingFeaturedText(false);
   }
 }
+async function uploadEditorialImage(
+  file: File
+) {
+  setUploadingEditorialImage(true);
 
+  try {
+    const formData = new FormData();
+
+    formData.append(
+      "image",
+      file
+    );
+
+    const response = await adminApi.post(
+      "/api/site-content/upload-image",
+      formData
+    );
+
+    const imageUrl =
+      response.data.data?.url ??
+      response.data.url;
+
+    if (!imageUrl) {
+      throw new Error(
+        "Image URL was not returned"
+      );
+    }
+
+    setEditorialContent((current) => ({
+      ...current,
+      imageUrl,
+    }));
+
+    toast.success(
+      "Image uploaded successfully"
+    );
+
+  } catch (error) {
+    const message =
+      axios.isAxiosError(error)
+        ? error.response?.data?.error ??
+          "Could not upload image"
+        : "Could not upload image";
+
+    toast.error(message);
+
+  } finally {
+    setUploadingEditorialImage(false);
+  }
+}
 async function saveEditorialContent() {
   setSavingEditorial(true);
 
@@ -491,6 +597,56 @@ async function saveEditorialContent() {
   }
 }
 
+async function uploadPrivateViewingImage(
+  file: File
+) {
+  setUploadingPrivateViewingImage(true);
+
+  try {
+    const formData = new FormData();
+
+    formData.append(
+      "image",
+      file
+    );
+
+    const response = await adminApi.post(
+      "/api/site-content/upload-image",
+      formData
+    );
+
+    const imageUrl =
+      response.data.data?.url ??
+      response.data.url;
+
+    if (!imageUrl) {
+      throw new Error(
+        "Image URL was not returned"
+      );
+    }
+
+    setPrivateViewingContent((current) => ({
+      ...current,
+      imageUrl,
+    }));
+
+    toast.success(
+      "Image uploaded successfully"
+    );
+
+  } catch (error) {
+    const message =
+      axios.isAxiosError(error)
+        ? error.response?.data?.error ??
+          "Could not upload image"
+        : "Could not upload image";
+
+    toast.error(message);
+
+  } finally {
+    setUploadingPrivateViewingImage(false);
+  }
+}
 async function savePrivateViewingContent() {
   setSavingPrivateViewing(true);
 
@@ -537,6 +693,60 @@ async function savePrivateViewingContent() {
 
   } finally {
     setSavingPrivateViewing(false);
+  }
+}
+async function saveFooterContent() {
+  setSavingFooter(true);
+
+  try {
+    await adminApi.put(
+      "/api/site-settings/footer",
+      {
+        footerBrandDescription:
+          footerContent.brandDescription.trim(),
+
+        footerExploreTitle:
+          footerContent.exploreTitle.trim(),
+
+        footerAtelierTitle:
+          footerContent.atelierTitle.trim(),
+
+        footerAddressLine1:
+          footerContent.addressLine1.trim(),
+
+        footerAddressLine2:
+          footerContent.addressLine2.trim(),
+
+        footerEmail:
+          footerContent.email.trim(),
+
+        footerCopyrightText:
+          footerContent.copyrightText.trim(),
+
+        footerTagline:
+          footerContent.tagline.trim(),
+      }
+    );
+
+    setInitialFooterContent({
+      ...footerContent,
+    });
+
+    toast.success(
+      "Footer content updated"
+    );
+
+  } catch (error) {
+    const message =
+      axios.isAxiosError(error)
+        ? error.response?.data?.error ??
+          "Could not update footer content"
+        : "Could not update footer content";
+
+    toast.error(message);
+
+  } finally {
+    setSavingFooter(false);
   }
 }
 
@@ -1022,21 +1232,45 @@ async function savePrivateViewingContent() {
   <label
     className="mb-2 block text-xs font-semibold tracking-[0.15em] text-zinc-500 uppercase"
   >
-    Image URL
+    Editorial Image
   </label>
 
   <input
-    type="text"
-    value={editorialContent.imageUrl}
-    onChange={(e) =>
-      setEditorialContent({
-        ...editorialContent,
-        imageUrl: e.target.value,
-      })
+    type="file"
+    accept="image/jpeg,image/png,image/webp"
+    disabled={
+      savingEditorial ||
+      uploadingEditorialImage
     }
-    disabled={savingEditorial}
-    className="w-full rounded-xl border border-white/10 bg-obsidian-900 px-4 py-3 text-sm text-white outline-none focus:border-champagne-400/50 disabled:opacity-50"
+    onChange={(e) => {
+      const file =
+        e.target.files?.[0];
+
+      if (!file) {
+        return;
+      }
+
+      uploadEditorialImage(file);
+    }}
+    className="w-full rounded-xl border border-white/10 bg-obsidian-900 px-4 py-3 text-sm text-zinc-300 file:mr-4 file:rounded-full file:border-0 file:bg-champagne-400 file:px-4 file:py-2 file:text-xs file:font-bold file:text-black disabled:opacity-50"
   />
+
+  {uploadingEditorialImage && (
+    <div className="mt-3 flex items-center gap-2 text-xs text-zinc-400">
+      <Loader2 className="size-4 animate-spin" />
+      Uploading image...
+    </div>
+  )}
+
+  {editorialContent.imageUrl && (
+    <div className="mt-4">
+      <img
+        src={editorialContent.imageUrl}
+        alt="Editorial preview"
+        className="h-56 w-full rounded-xl object-cover"
+      />
+    </div>
+  )}
 </div>
 
 
@@ -1352,23 +1586,49 @@ async function savePrivateViewingContent() {
     </div>
 
     <div>
-      <label className="mb-2 block text-xs font-semibold tracking-[0.15em] text-zinc-500 uppercase">
-        Image URL
-      </label>
+  <label
+    className="mb-2 block text-xs font-semibold tracking-[0.15em] text-zinc-500 uppercase"
+  >
+    Private Viewings Image
+  </label>
 
-      <input
-        type="text"
-        value={privateViewingContent.imageUrl}
-        onChange={(e) =>
-          setPrivateViewingContent({
-            ...privateViewingContent,
-            imageUrl: e.target.value,
-          })
-        }
-        disabled={savingPrivateViewing}
-        className="w-full rounded-xl border border-white/10 bg-obsidian-900 px-4 py-3 text-sm text-white outline-none focus:border-champagne-400/50 disabled:opacity-50"
+  <input
+    type="file"
+    accept="image/jpeg,image/png,image/webp"
+    disabled={
+      savingPrivateViewing ||
+      uploadingPrivateViewingImage
+    }
+    onChange={(e) => {
+      const file =
+        e.target.files?.[0];
+
+      if (!file) {
+        return;
+      }
+
+      uploadPrivateViewingImage(file);
+    }}
+    className="w-full rounded-xl border border-white/10 bg-obsidian-900 px-4 py-3 text-sm text-zinc-300 file:mr-4 file:rounded-full file:border-0 file:bg-champagne-400 file:px-4 file:py-2 file:text-xs file:font-bold file:text-black disabled:opacity-50"
+  />
+
+  {uploadingPrivateViewingImage && (
+    <div className="mt-3 flex items-center gap-2 text-xs text-zinc-400">
+      <Loader2 className="size-4 animate-spin" />
+      Uploading image...
+    </div>
+  )}
+
+  {privateViewingContent.imageUrl && (
+    <div className="mt-4">
+      <img
+        src={privateViewingContent.imageUrl}
+        alt="Private viewings preview"
+        className="h-56 w-full rounded-xl object-cover"
       />
     </div>
+  )}
+</div>
 
     <div className="flex justify-end border-t border-white/10 pt-6">
       <button
@@ -1390,6 +1650,228 @@ async function savePrivateViewingContent() {
           : "Save Private Viewings"}
       </button>
     </div>
+  </div>
+</div>
+{/* Footer Content */}
+<div className="mt-8 rounded-2xl border border-white/10 bg-white/[0.025] p-6 md:p-8">
+
+  <div className="flex items-start gap-4">
+    <div className="flex size-11 shrink-0 items-center justify-center rounded-xl border border-white/10 bg-white/[0.04]">
+      <MonitorCog className="size-5 text-champagne-400" />
+    </div>
+
+    <div>
+      <h2 className="font-display text-xl font-semibold">
+        Footer Content
+      </h2>
+
+      <p className="mt-1 text-sm leading-6 text-zinc-500">
+        Edit the text and contact information displayed in the website footer.
+      </p>
+    </div>
+  </div>
+
+
+  <div className="mt-7 grid gap-5">
+
+    {/* Brand Description */}
+    <div>
+      <label className="mb-2 block text-xs font-semibold tracking-[0.15em] text-zinc-500 uppercase">
+        Brand Description
+      </label>
+
+      <textarea
+        value={footerContent.brandDescription}
+        onChange={(e) =>
+          setFooterContent({
+            ...footerContent,
+            brandDescription: e.target.value,
+          })
+        }
+        disabled={savingFooter}
+        rows={4}
+        className="w-full resize-none rounded-xl border border-white/10 bg-obsidian-900 px-4 py-3 text-sm text-white outline-none focus:border-champagne-400/50 disabled:opacity-50"
+      />
+    </div>
+
+
+    {/* Explore Title */}
+    <div>
+      <label className="mb-2 block text-xs font-semibold tracking-[0.15em] text-zinc-500 uppercase">
+        Explore Title
+      </label>
+
+      <input
+        type="text"
+        value={footerContent.exploreTitle}
+        onChange={(e) =>
+          setFooterContent({
+            ...footerContent,
+            exploreTitle: e.target.value,
+          })
+        }
+        disabled={savingFooter}
+        className="w-full rounded-xl border border-white/10 bg-obsidian-900 px-4 py-3 text-sm text-white outline-none focus:border-champagne-400/50 disabled:opacity-50"
+      />
+    </div>
+
+
+    {/* Atelier Title */}
+    <div>
+      <label className="mb-2 block text-xs font-semibold tracking-[0.15em] text-zinc-500 uppercase">
+        Atelier Title
+      </label>
+
+      <input
+        type="text"
+        value={footerContent.atelierTitle}
+        onChange={(e) =>
+          setFooterContent({
+            ...footerContent,
+            atelierTitle: e.target.value,
+          })
+        }
+        disabled={savingFooter}
+        className="w-full rounded-xl border border-white/10 bg-obsidian-900 px-4 py-3 text-sm text-white outline-none focus:border-champagne-400/50 disabled:opacity-50"
+      />
+    </div>
+
+
+    {/* Address Line 1 */}
+    <div>
+      <label className="mb-2 block text-xs font-semibold tracking-[0.15em] text-zinc-500 uppercase">
+        Address Line 1
+      </label>
+
+      <input
+        type="text"
+        value={footerContent.addressLine1}
+        onChange={(e) =>
+          setFooterContent({
+            ...footerContent,
+            addressLine1: e.target.value,
+          })
+        }
+        disabled={savingFooter}
+        className="w-full rounded-xl border border-white/10 bg-obsidian-900 px-4 py-3 text-sm text-white outline-none focus:border-champagne-400/50 disabled:opacity-50"
+      />
+    </div>
+
+
+    {/* Address Line 2 */}
+    <div>
+      <label className="mb-2 block text-xs font-semibold tracking-[0.15em] text-zinc-500 uppercase">
+        Address Line 2
+      </label>
+
+      <input
+        type="text"
+        value={footerContent.addressLine2}
+        onChange={(e) =>
+          setFooterContent({
+            ...footerContent,
+            addressLine2: e.target.value,
+          })
+        }
+        disabled={savingFooter}
+        className="w-full rounded-xl border border-white/10 bg-obsidian-900 px-4 py-3 text-sm text-white outline-none focus:border-champagne-400/50 disabled:opacity-50"
+      />
+    </div>
+
+
+    {/* Email */}
+    <div>
+      <label className="mb-2 block text-xs font-semibold tracking-[0.15em] text-zinc-500 uppercase">
+        Email
+      </label>
+
+      <input
+        type="email"
+        value={footerContent.email}
+        onChange={(e) =>
+          setFooterContent({
+            ...footerContent,
+            email: e.target.value,
+          })
+        }
+        disabled={savingFooter}
+        className="w-full rounded-xl border border-white/10 bg-obsidian-900 px-4 py-3 text-sm text-white outline-none focus:border-champagne-400/50 disabled:opacity-50"
+      />
+    </div>
+
+
+    {/* Copyright */}
+    <div>
+      <label className="mb-2 block text-xs font-semibold tracking-[0.15em] text-zinc-500 uppercase">
+        Copyright Text
+      </label>
+
+      <input
+        type="text"
+        value={footerContent.copyrightText}
+        onChange={(e) =>
+          setFooterContent({
+            ...footerContent,
+            copyrightText: e.target.value,
+          })
+        }
+        disabled={savingFooter}
+        className="w-full rounded-xl border border-white/10 bg-obsidian-900 px-4 py-3 text-sm text-white outline-none focus:border-champagne-400/50 disabled:opacity-50"
+      />
+    </div>
+
+
+    {/* Tagline */}
+    <div>
+      <label className="mb-2 block text-xs font-semibold tracking-[0.15em] text-zinc-500 uppercase">
+        Tagline
+      </label>
+
+      <input
+        type="text"
+        value={footerContent.tagline}
+        onChange={(e) =>
+          setFooterContent({
+            ...footerContent,
+            tagline: e.target.value,
+          })
+        }
+        disabled={savingFooter}
+        className="w-full rounded-xl border border-white/10 bg-obsidian-900 px-4 py-3 text-sm text-white outline-none focus:border-champagne-400/50 disabled:opacity-50"
+      />
+    </div>
+
+
+    {/* Save */}
+    <div className="flex justify-end border-t border-white/10 pt-6">
+      <button
+        type="button"
+        onClick={saveFooterContent}
+        disabled={
+          savingFooter ||
+          !footerContent.brandDescription.trim() ||
+          !footerContent.exploreTitle.trim() ||
+          !footerContent.atelierTitle.trim() ||
+          !footerContent.addressLine1.trim() ||
+          !footerContent.addressLine2.trim() ||
+          !footerContent.email.trim() ||
+          !footerContent.copyrightText.trim() ||
+          !footerContent.tagline.trim() ||
+          JSON.stringify(footerContent) ===
+            JSON.stringify(initialFooterContent)
+        }
+        className="inline-flex items-center gap-2 rounded-full bg-champagne-400 px-6 py-2.5 text-xs font-bold tracking-[0.12em] text-black uppercase transition-opacity disabled:cursor-not-allowed disabled:opacity-40"
+      >
+        {savingFooter && (
+          <Loader2 className="size-4 animate-spin" />
+        )}
+
+        {savingFooter
+          ? "Saving..."
+          : "Save Footer"}
+      </button>
+    </div>
+
   </div>
 </div>
 
