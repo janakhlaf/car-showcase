@@ -323,6 +323,30 @@ if (!$sent) {
         500
     );
 }
+/*
+|--------------------------------------------------------------------------
+| ACTIVITY LOG - CUSTOMER ACCOUNT CREATED
+|--------------------------------------------------------------------------
+*/
+
+logActivity(
+    $pdo,
+    $userId,
+    'customer',
+    'account_created',
+    'user',
+    $userId,
+    'Customer created a new account',
+    null,
+    [
+        'name' => $name,
+        'email' => $email,
+        'phone' => $phone
+    ],
+    [
+        'source' => 'customer_registration'
+    ]
+);
     
 
 
@@ -1437,6 +1461,28 @@ if (
     $useOtp->execute([
         (int)$otpRow['id']
     ]);
+
+    /*
+|--------------------------------------------------------------------------
+| ACTIVITY LOG - PASSWORD RESET COMPLETED
+|--------------------------------------------------------------------------
+*/
+
+logActivity(
+    $pdo,
+    (int)$user['id'],
+    'customer',
+    'password_reset_completed',
+    'user',
+    (int)$user['id'],
+    'Customer reset account password',
+    null,
+    null,
+    [
+        'email' => $email,
+        'source' => 'forgot_password'
+    ]
+);
 
     /*
     |--------------------------------------------------------------------------

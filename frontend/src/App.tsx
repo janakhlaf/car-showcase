@@ -32,6 +32,7 @@ import { AdminUsersPage } from "@/components/admin/admin-users-page";
 import { AdminProfilePage } from "@/components/admin/admin-profile-page";
 import { AdminRolesPage } from "@/components/admin/admin-roles-page";
 import { WebsiteContentPage } from "@/components/admin/website-content-page";
+import { AdminActivityHistoryPage } from "@/components/admin/admin-activity-history-page";
 import { RegisterPage } from "@/pages/RegisterPage";
 import { LoginPage } from "@/pages/LoginPage";
 import { ForgotPasswordPage } from "@/pages/ForgotPasswordPage";
@@ -159,6 +160,11 @@ export default function App() {
             <Route
               path="/admin/content"
               element={<WebsiteContentPage />}
+            />
+
+            <Route
+              path="/admin/activity-history"
+              element={<AdminActivityHistoryPage />}
             />
 
             <Route

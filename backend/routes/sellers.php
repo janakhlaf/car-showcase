@@ -683,19 +683,12 @@ if (
     $method === 'PATCH'
 ) {
 
-    requirePermission(
-        $pdo,
-        'seller_vehicles.review'
-    );
+    $currentAdmin = requirePermission(
+    $pdo,
+    'seller_vehicles.review'
+);
 
-    $adminPayload =
-        admin();
-
-    $adminId =
-        (int)(
-            $adminPayload['sub']
-            ?? 0
-        );
+$adminId = (int)$currentAdmin['id'];
 
     $carId =
         (int)$matches[1];
@@ -775,6 +768,33 @@ if (
         ]);
 
         $pdo->commit();
+        /*
+|--------------------------------------------------------------------------
+| ACTIVITY LOG - SELLER VEHICLE APPROVED
+|--------------------------------------------------------------------------
+*/
+
+logActivity(
+    $pdo,
+    $adminId,
+    'admin',
+    'car_approved',
+    'car',
+    $carId,
+    'Admin approved seller vehicle',
+    [
+        'approval_status' => $vehicle['approval_status']
+    ],
+    [
+        'approval_status' => 'approved'
+    ],
+    [
+        'admin_name' => $currentAdmin['name'],
+        'admin_role' => $currentAdmin['role'],
+        'seller_id' => (int)$vehicle['seller_id'],
+        'source' => 'seller_vehicle_review'
+    ]
+);
 
     } catch (Throwable $e) {
 
@@ -825,19 +845,12 @@ if (
     $method === 'PATCH'
 ) {
 
-    requirePermission(
-        $pdo,
-        'seller_vehicles.review'
-    );
+    $currentAdmin = requirePermission(
+    $pdo,
+    'seller_vehicles.review'
+);
 
-    $adminPayload =
-        admin();
-
-    $adminId =
-        (int)(
-            $adminPayload['sub']
-            ?? 0
-        );
+$adminId = (int)$currentAdmin['id'];
 
     $carId =
         (int)$matches[1];
@@ -947,6 +960,34 @@ if (
         ]);
 
         $pdo->commit();
+        /*
+|--------------------------------------------------------------------------
+| ACTIVITY LOG - SELLER VEHICLE REJECTED
+|--------------------------------------------------------------------------
+*/
+
+logActivity(
+    $pdo,
+    $adminId,
+    'admin',
+    'car_rejected',
+    'car',
+    $carId,
+    'Admin rejected seller vehicle',
+    [
+        'approval_status' => $vehicle['approval_status']
+    ],
+    [
+        'approval_status' => 'rejected'
+    ],
+    [
+        'admin_name' => $currentAdmin['name'],
+        'admin_role' => $currentAdmin['role'],
+        'seller_id' => (int)$vehicle['seller_id'],
+        'rejection_reason' => $reason,
+        'source' => 'seller_vehicle_review'
+    ]
+);
 
     } catch (Throwable $e) {
 
@@ -1799,6 +1840,36 @@ if (
 
         $pdo->commit();
 
+        /*
+|--------------------------------------------------------------------------
+| ACTIVITY LOG - SELLER VEHICLE CREATED
+|--------------------------------------------------------------------------
+*/
+
+logActivity(
+    $pdo,
+    (int)$seller['id'],
+    'seller',
+    'car_created',
+    'car',
+    $carId,
+    'Seller submitted a new vehicle',
+    null,
+    [
+        'approval_status' => 'pending',
+        'name' => $name,
+        'brand_id' => $brandId,
+        'year' => $year,
+        'price' => $price,
+        'color' => $color
+    ],
+    [
+        'seller_name' => $seller['name'],
+        'seller_email' => $seller['email'],
+        'source' => 'seller_vehicle'
+    ]
+);
+
         out(
             [
                 'message' => 'Vehicle submitted for review',
@@ -2038,6 +2109,42 @@ if (
         $deleteVariants->execute([$carId]);
 
         $pdo->commit();
+        /*
+|--------------------------------------------------------------------------
+| ACTIVITY LOG - SELLER VEHICLE UPDATED
+|--------------------------------------------------------------------------
+*/
+
+logActivity(
+    $pdo,
+    (int)$seller['id'],
+    'seller',
+    'car_updated',
+    'car',
+    $carId,
+    'Seller updated a vehicle',
+    [
+        'approval_status' => $currentCar['approval_status'],
+        'name' => $currentCar['name'],
+        'brand_id' => (int)$currentCar['brand_id'],
+        'year' => (int)$currentCar['year'],
+        'price' => (int)$currentCar['price'],
+        'color' => $currentCar['color']
+    ],
+    [
+        'approval_status' => 'pending',
+        'name' => $name,
+        'brand_id' => $brandId,
+        'year' => $year,
+        'price' => $price,
+        'color' => $color
+    ],
+    [
+        'seller_name' => $seller['name'],
+        'seller_email' => $seller['email'],
+        'source' => 'seller_vehicle'
+    ]
+);
     } catch (Throwable $e) {
         if ($pdo->inTransaction()) {
             $pdo->rollBack();
@@ -2098,17 +2205,23 @@ if (
     */
 
     $statement =
-        $pdo->prepare(
-            'SELECT
-                id,
-                thumbnail,
-                images,
-                model_path
-             FROM cars
-             WHERE id = ?
-               AND seller_id = ?
-             LIMIT 1'
-        );
+    $pdo->prepare(
+        'SELECT
+            id,
+            name,
+            brand_id,
+            year,
+            price,
+            color,
+            approval_status,
+            thumbnail,
+            images,
+            model_path
+         FROM cars
+         WHERE id = ?
+           AND seller_id = ?
+         LIMIT 1'
+    );
 
     $statement->execute([
         $carId,
@@ -2230,6 +2343,35 @@ if (
         ]);
 
         $pdo->commit();
+        /*
+|--------------------------------------------------------------------------
+| ACTIVITY LOG - SELLER VEHICLE DELETED
+|--------------------------------------------------------------------------
+*/
+
+logActivity(
+    $pdo,
+    (int)$seller['id'],
+    'seller',
+    'car_deleted',
+    'car',
+    $carId,
+    'Seller deleted a vehicle',
+    [
+        'approval_status' => $car['approval_status'],
+        'name' => $car['name'],
+        'brand_id' => (int)$car['brand_id'],
+        'year' => (int)$car['year'],
+        'price' => (int)$car['price'],
+        'color' => $car['color']
+    ],
+    null,
+    [
+        'seller_name' => $seller['name'],
+        'seller_email' => $seller['email'],
+        'source' => 'seller_vehicle'
+    ]
+);
 
     } catch (Throwable $e) {
 
@@ -2628,6 +2770,36 @@ if (
     $availabilityId =
         (int)$pdo->lastInsertId();
 
+        /*
+|--------------------------------------------------------------------------
+| ACTIVITY LOG - SELLER AVAILABILITY CREATED
+|--------------------------------------------------------------------------
+*/
+
+logActivity(
+    $pdo,
+    (int)$seller['id'],
+    'seller',
+    'availability_created',
+    'seller_availability',
+    $availabilityId,
+    'Seller added test drive availability',
+    null,
+    [
+        'car_id' => $carId,
+        'day_of_week' => $dayOfWeek,
+        'start_time' => $startTime,
+        'end_time' => $endTime,
+        'slot_duration' => $slotDuration,
+        'is_active' => true
+    ],
+    [
+        'seller_name' => $seller['name'],
+        'seller_email' => $seller['email'],
+        'source' => 'seller_availability'
+    ]
+);
+
     out(
         [
             'message' =>
@@ -2721,6 +2893,43 @@ if (
             404
         );
     }
+    /*
+|--------------------------------------------------------------------------
+| GET AVAILABILITY BEFORE DELETE
+|--------------------------------------------------------------------------
+*/
+
+$availabilityStatement =
+    $pdo->prepare(
+        'SELECT
+            id,
+            day_of_week,
+            start_time,
+            end_time,
+            slot_duration,
+            is_active
+         FROM seller_test_drive_availability
+         WHERE id = ?
+           AND car_id = ?
+           AND seller_id = ?
+         LIMIT 1'
+    );
+
+$availabilityStatement->execute([
+    $availabilityId,
+    $carId,
+    $seller['id']
+]);
+
+$oldAvailability =
+    $availabilityStatement->fetch();
+
+if (!$oldAvailability) {
+    fail(
+        'Availability not found',
+        404
+    );
+}
 
 
     /*
@@ -2753,6 +2962,35 @@ if (
             404
         );
     }
+    /*
+|--------------------------------------------------------------------------
+| ACTIVITY LOG - SELLER AVAILABILITY DELETED
+|--------------------------------------------------------------------------
+*/
+
+logActivity(
+    $pdo,
+    (int)$seller['id'],
+    'seller',
+    'availability_deleted',
+    'seller_availability',
+    $availabilityId,
+    'Seller deleted test drive availability',
+    [
+        'car_id' => $carId,
+        'day_of_week' => (int)$oldAvailability['day_of_week'],
+        'start_time' => $oldAvailability['start_time'],
+        'end_time' => $oldAvailability['end_time'],
+        'slot_duration' => (int)$oldAvailability['slot_duration'],
+        'is_active' => (bool)$oldAvailability['is_active']
+    ],
+    null,
+    [
+        'seller_name' => $seller['name'],
+        'seller_email' => $seller['email'],
+        'source' => 'seller_availability'
+    ]
+);
 
     out([
         'message' =>

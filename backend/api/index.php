@@ -406,6 +406,7 @@ require_once __DIR__ . '/../routes/auth.php';
 require_once __DIR__ . '/../routes/test-drives.php';
 require_once __DIR__ . '/../routes/sellers.php';
 require_once __DIR__ . '/../routes/messages.php';
+require_once __DIR__ . '/activity-logs.php';
 
 
 /* =========================================================
@@ -1268,6 +1269,35 @@ if (
         $targetId
     ]);
 
+    /*
+|--------------------------------------------------------------------------
+| ACTIVITY LOG - ADMIN ROLE CHANGED
+|--------------------------------------------------------------------------
+*/
+
+logActivity(
+    $pdo,
+    (int)$currentAdmin['id'],
+    'admin',
+    'admin_role_changed',
+    'admin_user',
+    $targetId,
+    'Super Admin changed an admin role',
+    [
+        'role' => $target['role']
+    ],
+    [
+        'role' => $newRole
+    ],
+    [
+        'admin_name' => $currentAdmin['name'],
+        'admin_role' => $currentAdmin['role'],
+        'target_admin_name' => $target['name'],
+        'target_admin_email' => $target['email'],
+        'source' => 'admin_management'
+    ]
+);
+
     out([
         'id' => $targetId,
         'role' => $newRole
@@ -2097,24 +2127,32 @@ LIMIT 1
 if (
     $method === 'DELETE'
 ) {
-    requirePermission(
-    $pdo,
-    'cars.delete'
-);
+    $currentAdmin = requirePermission(
+        $pdo,
+        'cars.delete'
+    );
+
+    $adminId = (int)$currentAdmin['id'];
 
     /*
      * Get current car files before deleting DB rows.
      */
 
     $carStatement = $pdo->prepare(
-        'SELECT
-            thumbnail,
-            images,
-            model_path
-         FROM cars
-         WHERE id = ?
-         LIMIT 1'
-    );
+    'SELECT
+        name,
+        brand_id,
+        year,
+        price,
+        color,
+        featured,
+        thumbnail,
+        images,
+        model_path
+     FROM cars
+     WHERE id = ?
+     LIMIT 1'
+);
 
     $carStatement->execute([
         $id
@@ -2184,6 +2222,36 @@ if (
 
         $pdo->commit();
 
+        /*
+|--------------------------------------------------------------------------
+| ACTIVITY LOG - ADMIN VEHICLE DELETED
+|--------------------------------------------------------------------------
+*/
+
+logActivity(
+    $pdo,
+    $adminId,
+    'admin',
+    'admin_car_deleted',
+    'car',
+    $id,
+    'Admin deleted a VELOCE vehicle',
+    [
+        'name' => $carFiles['name'],
+        'brand_id' => (int)$carFiles['brand_id'],
+        'year' => (int)$carFiles['year'],
+        'price' => (int)$carFiles['price'],
+        'color' => $carFiles['color'],
+        'featured' => (bool)$carFiles['featured']
+    ],
+    null,
+    [
+        'admin_name' => $currentAdmin['name'],
+        'admin_role' => $currentAdmin['role'],
+        'source' => 'admin_vehicle'
+    ]
+);
+
     } catch (Throwable $e) {
 
         if ($pdo->inTransaction()) {
@@ -2250,10 +2318,12 @@ if (
 if (
     $method === 'PUT'
 ) {
-    requirePermission(
-    $pdo,
-    'cars.edit'
-);
+    $currentAdmin = requirePermission(
+        $pdo,
+        'cars.edit'
+    );
+
+    $adminId = (int)$currentAdmin['id'];
 
     $b = body();
 
@@ -2402,20 +2472,30 @@ if (
      */
 
     $oldStatement =
-        $pdo->prepare(
-            '
+    $pdo->prepare(
+        '
             SELECT
+                name,
+                brand_id,
+                year,
+                price,
+                color,
+                color_hex,
+                description,
                 thumbnail,
                 images,
-                model_path
+                model_path,
+                featured,
+                specs,
+                features
 
             FROM cars
 
             WHERE id = ?
 
             LIMIT 1
-            '
-        );
+        '
+    );
 
 
     $oldStatement->execute([
@@ -2776,6 +2856,43 @@ if (
 
         $pdo->commit();
 
+        /*
+|--------------------------------------------------------------------------
+| ACTIVITY LOG - ADMIN VEHICLE UPDATED
+|--------------------------------------------------------------------------
+*/
+
+logActivity(
+    $pdo,
+    $adminId,
+    'admin',
+    'admin_car_updated',
+    'car',
+    $id,
+    'Admin updated a VELOCE vehicle',
+    [
+        'name' => $oldCar['name'],
+        'brand_id' => (int)$oldCar['brand_id'],
+        'year' => (int)$oldCar['year'],
+        'price' => (int)$oldCar['price'],
+        'color' => $oldCar['color'],
+        'featured' => (bool)$oldCar['featured']
+    ],
+    [
+        'name' => $b['name'],
+        'brand_id' => (int)$b['brandId'],
+        'year' => (int)$b['year'],
+        'price' => (int)$b['price'],
+        'color' => $defaultVariant['colorName'],
+        'featured' => !empty($b['featured'])
+    ],
+    [
+        'admin_name' => $currentAdmin['name'],
+        'admin_role' => $currentAdmin['role'],
+        'source' => 'admin_vehicle'
+    ]
+);
+
 
     } catch (
         Throwable $e
@@ -2843,10 +2960,12 @@ if (
     &&
     $method === 'POST'
 ) {
-    requirePermission(
+    $currentAdmin = requirePermission(
     $pdo,
     'cars.create'
 );
+
+$adminId = (int)$currentAdmin['id'];
 
     $b = body();
 
@@ -3057,6 +3176,36 @@ if (
 
 
         $pdo->commit();
+
+        /*
+|--------------------------------------------------------------------------
+| ACTIVITY LOG - ADMIN VEHICLE CREATED
+|--------------------------------------------------------------------------
+*/
+
+logActivity(
+    $pdo,
+    $adminId,
+    'admin',
+    'admin_car_created',
+    'car',
+    $carId,
+    'Admin created a VELOCE vehicle',
+    null,
+    [
+        'name' => $b['name'],
+        'brand_id' => (int)$b['brandId'],
+        'year' => (int)$b['year'],
+        'price' => (int)$b['price'],
+        'color' => $defaultVariant['colorName'] ?? '',
+        'featured' => !empty($b['featured'])
+    ],
+    [
+        'admin_name' => $currentAdmin['name'],
+        'admin_role' => $currentAdmin['role'],
+        'source' => 'admin_vehicle'
+    ]
+);
 
 
         out(
