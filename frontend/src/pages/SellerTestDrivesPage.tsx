@@ -44,6 +44,8 @@ export function SellerTestDrivesPage() {
 
   const [bookings, setBookings] =
     useState<Booking[]>([]);
+    const [statusFilter, setStatusFilter] =
+  useState("all");
 
   const [loading, setLoading] =
     useState(true);
@@ -53,6 +55,13 @@ export function SellerTestDrivesPage() {
 
   const [error, setError] =
     useState("");
+    const filteredBookings =
+  statusFilter === "all"
+    ? bookings
+    : bookings.filter(
+        (booking) =>
+          booking.status === statusFilter
+      );
 
   async function loadBookings() {
     try {
@@ -170,6 +179,42 @@ export function SellerTestDrivesPage() {
             {error}
           </div>
         )}
+        {/* STATUS FILTER */}
+
+{bookings.length > 0 && (
+  <div className="mb-6 flex flex-wrap gap-2">
+    {[
+      ["all", "All"],
+      ["pending", "Pending"],
+      ["confirmed", "Confirmed"],
+      ["completed", "Completed"],
+      ["cancelled", "Cancelled"],
+    ].map(([value, label]) => {
+      const count =
+        value === "all"
+          ? bookings.length
+          : bookings.filter(
+              (booking) =>
+                booking.status === value
+            ).length;
+
+      return (
+        <button
+          key={value}
+          type="button"
+          onClick={() => setStatusFilter(value)}
+          className={
+            statusFilter === value
+              ? "rounded-full bg-[#d7b36a] px-4 py-2 text-xs font-bold uppercase tracking-wider text-black"
+              : "rounded-full border border-white/10 bg-white/[0.02] px-4 py-2 text-xs font-semibold uppercase tracking-wider text-white/50 transition hover:border-[#d7b36a]/40 hover:text-[#d7b36a]"
+          }
+        >
+          {label} ({count})
+        </button>
+      );
+    })}
+  </div>
+)}
 
         {bookings.length === 0 ? (
           <div className="rounded-3xl border border-dashed border-white/10 py-20 text-center">
@@ -182,7 +227,7 @@ export function SellerTestDrivesPage() {
         ) : (
           <div className="space-y-5">
 
-            {bookings.map((booking) => (
+            {filteredBookings.map((booking) => (
               <article
                 key={booking.id}
                 className="rounded-3xl border border-white/10 bg-white/[0.02] p-6"

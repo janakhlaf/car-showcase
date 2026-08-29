@@ -59,6 +59,8 @@ export function MyTestDrivesPage() {
   ] = useState<TestDriveBooking[]>(
     []
   );
+  const [statusFilter, setStatusFilter] =
+  useState("all");
 
   const [
     loading,
@@ -69,6 +71,13 @@ export function MyTestDrivesPage() {
     error,
     setError,
   ] = useState("");
+  const filteredBookings =
+  statusFilter === "all"
+    ? bookings
+    : bookings.filter(
+        (booking) =>
+          booking.status === statusFilter
+      );
 
 
   /*
@@ -290,6 +299,42 @@ export function MyTestDrivesPage() {
             {error}
           </div>
         )}
+        {/* STATUS FILTER */}
+
+{bookings.length > 0 && (
+  <div className="mb-6 flex flex-wrap gap-2">
+    {[
+      ["all", "All"],
+      ["pending", "Pending"],
+      ["confirmed", "Confirmed"],
+      ["completed", "Completed"],
+      ["cancelled", "Cancelled"],
+    ].map(([value, label]) => {
+      const count =
+        value === "all"
+          ? bookings.length
+          : bookings.filter(
+              (booking) =>
+                booking.status === value
+            ).length;
+
+      return (
+        <button
+          key={value}
+          type="button"
+          onClick={() => setStatusFilter(value)}
+          className={
+            statusFilter === value
+              ? "rounded-full bg-[#d7b36a] px-4 py-2 text-xs font-bold uppercase tracking-wider text-black"
+              : "rounded-full border border-white/10 bg-white/[0.02] px-4 py-2 text-xs font-semibold uppercase tracking-wider text-white/50 transition hover:border-[#d7b36a]/40 hover:text-[#d7b36a]"
+          }
+        >
+          {label} ({count})
+        </button>
+      );
+    })}
+  </div>
+)}
 
 
         {/* EMPTY */}
@@ -319,8 +364,8 @@ export function MyTestDrivesPage() {
 
         <div className="space-y-4">
 
-          {bookings.map(
-            (booking) => (
+          {filteredBookings.map(
+  (booking) => (
 
               <article
                 key={booking.id}

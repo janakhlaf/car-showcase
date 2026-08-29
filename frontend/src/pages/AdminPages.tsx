@@ -102,6 +102,7 @@ export function AdminTestDrivesPage() {
   const [bookings, setBookings] = useState<TestDriveBooking[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
+  const [statusFilter, setStatusFilter] = useState("all");
   const [selectedBooking, setSelectedBooking] =
   useState<TestDriveBooking | null>(null);
   const [updatingStatus, setUpdatingStatus] =
@@ -133,6 +134,13 @@ export function AdminTestDrivesPage() {
         setLoading(false);
       });
   }, [navigate]);
+  const filteredBookings =
+  statusFilter === "all"
+    ? bookings
+    : bookings.filter(
+        (booking) =>
+          booking.status === statusFilter
+      );
 
   const formatDate = (date: string) => {
     return new Date(date + "T00:00:00").toLocaleDateString("en-US", {
@@ -278,6 +286,44 @@ export function AdminTestDrivesPage() {
         )}
 
         {/* BOOKINGS */}
+        {/* STATUS FILTER */}
+
+{bookings.length > 0 && (
+  <div className="mb-5 flex flex-wrap gap-2">
+    {[
+      ["all", "All"],
+      ["pending", "Pending"],
+      ["confirmed", "Confirmed"],
+      ["completed", "Completed"],
+      ["cancelled", "Cancelled"],
+    ].map(([value, label]) => {
+      const count =
+        value === "all"
+          ? bookings.length
+          : bookings.filter(
+              (booking) =>
+                booking.status === value
+            ).length;
+
+      return (
+        <button
+          key={value}
+          type="button"
+          onClick={() =>
+            setStatusFilter(value)
+          }
+          className={
+            statusFilter === value
+              ? "rounded-full bg-[#d7b36a] px-4 py-2 text-xs font-bold uppercase tracking-wider text-black"
+              : "rounded-full border border-white/10 bg-white/[0.02] px-4 py-2 text-xs font-semibold uppercase tracking-wider text-white/50 transition hover:border-[#d7b36a]/40 hover:text-[#d7b36a]"
+          }
+        >
+          {label} ({count})
+        </button>
+      );
+    })}
+  </div>
+)}
 
         {bookings.length > 0 && (
           <div className="overflow-hidden rounded-2xl border border-white/10 bg-white/[0.02]">
@@ -294,7 +340,7 @@ export function AdminTestDrivesPage() {
               <span></span>
             </div>
 
-            {bookings.map((booking) => (
+            {filteredBookings.map((booking) => (
               <div
                 key={booking.id}
                 className="grid gap-5 border-b border-white/10 px-6 py-5 last:border-b-0 lg:grid-cols-[1.5fr_1.5fr_1fr_1fr_1fr_0.8fr_70px] lg:items-center"
@@ -605,6 +651,7 @@ export function AdminSellerRequestsPage() {
   const navigate = useNavigate();
 
   const [requests, setRequests] = useState<SellerRequest[]>([]);
+  const [statusFilter, setStatusFilter] = useState("all");
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [updatingId, setUpdatingId] = useState<number | null>(null);
@@ -614,6 +661,13 @@ export function AdminSellerRequestsPage() {
 
   const [rejectionReason, setRejectionReason] =
     useState("");
+    const filteredRequests =
+  statusFilter === "all"
+    ? requests
+    : requests.filter(
+        (request) =>
+          request.status === statusFilter
+      );
 
   const loadRequests = async () => {
     try {
@@ -860,6 +914,43 @@ export function AdminSellerRequestsPage() {
           )}
 
         {/* REQUESTS TABLE */}
+        {/* STATUS FILTER */}
+
+{requests.length > 0 && (
+  <div className="mb-5 flex flex-wrap gap-2">
+    {[
+      ["all", "All"],
+      ["pending", "Pending"],
+      ["approved", "Approved"],
+      ["rejected", "Rejected"],
+    ].map(([value, label]) => {
+      const count =
+        value === "all"
+          ? requests.length
+          : requests.filter(
+              (request) =>
+                request.status === value
+            ).length;
+
+      return (
+        <button
+          key={value}
+          type="button"
+          onClick={() =>
+            setStatusFilter(value)
+          }
+          className={
+            statusFilter === value
+              ? "rounded-full bg-[#d7b36a] px-4 py-2 text-xs font-bold uppercase tracking-wider text-black"
+              : "rounded-full border border-white/10 bg-white/[0.02] px-4 py-2 text-xs font-semibold uppercase tracking-wider text-white/50 transition hover:border-[#d7b36a]/40 hover:text-[#d7b36a]"
+          }
+        >
+          {label} ({count})
+        </button>
+      );
+    })}
+  </div>
+)}
 
         {requests.length > 0 && (
           <div className="overflow-hidden rounded-2xl border border-white/10 bg-white/[0.02]">
@@ -875,7 +966,9 @@ export function AdminSellerRequestsPage() {
 
             </div>
 
-            {requests.map((request) => (
+
+            
+            {filteredRequests.map((request) => (
 
               <div
                 key={request.id}
@@ -1109,6 +1202,8 @@ export function AdminVehicleReviewsPage() {
 
   const [vehicles, setVehicles] =
     useState<SellerVehicleReview[]>([]);
+    const [statusFilter, setStatusFilter] =
+  useState("all");
 
   const [loading, setLoading] =
     useState(true);
@@ -1126,6 +1221,13 @@ export function AdminVehicleReviewsPage() {
     useState("");
     const [previewVehicle, setPreviewVehicle] =
   useState<SellerVehicleReview | null>(null);
+  const filteredVehicles =
+  statusFilter === "all"
+    ? vehicles
+    : vehicles.filter(
+        (vehicle) =>
+          vehicle.approvalStatus === statusFilter
+      );
 
   async function loadVehicles() {
     try {
@@ -1349,12 +1451,50 @@ export function AdminVehicleReviewsPage() {
 
             </div>
           )}
+          
+          
 
-        {vehicles.length > 0 && (
+        {/* STATUS FILTER */}
+
+{vehicles.length > 0 && (
+  <div className="mb-5 flex flex-wrap gap-2">
+    {[
+      ["all", "All"],
+      ["pending", "Pending"],
+      ["approved", "Approved"],
+      ["rejected", "Rejected"],
+    ].map(([value, label]) => {
+      const count =
+        value === "all"
+          ? vehicles.length
+          : vehicles.filter(
+              (vehicle) =>
+                vehicle.approvalStatus === value
+            ).length;
+
+      return (
+        <button
+          key={value}
+          type="button"
+          onClick={() => setStatusFilter(value)}
+          className={
+            statusFilter === value
+              ? "rounded-full bg-[#d7b36a] px-4 py-2 text-xs font-bold uppercase tracking-wider text-black"
+              : "rounded-full border border-white/10 bg-white/[0.02] px-4 py-2 text-xs font-semibold uppercase tracking-wider text-white/50 transition hover:border-[#d7b36a]/40 hover:text-[#d7b36a]"
+          }
+        >
+          {label} ({count})
+        </button>
+      );
+    })}
+  </div>
+)}
+
+{vehicles.length > 0 && (
 
           <div className="space-y-5">
 
-            {vehicles.map((vehicle) => (
+            {filteredVehicles.map((vehicle) => (
 
               <article
                 key={vehicle.id}

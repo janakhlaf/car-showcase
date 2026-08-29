@@ -172,6 +172,8 @@ export function SellerDashboardPage() {
     setCars,
   ] =
     useState<SellerCar[]>([]);
+    const [statusFilter, setStatusFilter] =
+  useState("all");
 
   const [
     loading,
@@ -201,6 +203,13 @@ export function SellerDashboardPage() {
   useState<SellerCar | null>(
     null
   );
+  const filteredCars =
+  statusFilter === "all"
+    ? cars
+    : cars.filter(
+        (car) =>
+          car.approvalStatus === statusFilter
+      );
 
 
   /*
@@ -521,6 +530,41 @@ export function SellerDashboardPage() {
               </div>
 
             </div>
+            {/* STATUS FILTER */}
+
+{cars.length > 0 && (
+  <div className="mt-6 flex flex-wrap gap-2">
+    {[
+      ["all", "All"],
+      ["pending", "Pending"],
+      ["approved", "Approved"],
+      ["rejected", "Rejected"],
+    ].map(([value, label]) => {
+      const count =
+        value === "all"
+          ? cars.length
+          : cars.filter(
+              (car) =>
+                car.approvalStatus === value
+            ).length;
+
+      return (
+        <button
+          key={value}
+          type="button"
+          onClick={() => setStatusFilter(value)}
+          className={
+            statusFilter === value
+              ? "rounded-full bg-[#d7b36a] px-4 py-2 text-xs font-bold uppercase tracking-wider text-black"
+              : "rounded-full border border-white/10 bg-white/[0.02] px-4 py-2 text-xs font-semibold uppercase tracking-wider text-white/50 transition hover:border-[#d7b36a]/40 hover:text-[#d7b36a]"
+          }
+        >
+          {label} ({count})
+        </button>
+      );
+    })}
+  </div>
+)}
 
 
             {/* EMPTY */}
@@ -551,8 +595,8 @@ export function SellerDashboardPage() {
 
               <div className="mt-8 space-y-5">
 
-                {cars.map(
-                  (car) => (
+                {filteredCars.map(
+                 (car) => (
 
                     <article
                       key={car.id}
