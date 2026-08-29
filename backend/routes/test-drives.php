@@ -807,6 +807,34 @@ $bookingBlockedUntil->modify(
 */
 
 $bookingId = (int)$pdo->lastInsertId();
+/*
+|--------------------------------------------------------------------------
+| ACTIVITY LOG - TEST DRIVE REQUESTED
+|--------------------------------------------------------------------------
+*/
+
+logActivity(
+    $pdo,
+    (int)$user['id'],
+    'customer',
+    'test_drive_requested',
+    'test_drive',
+    $bookingId,
+    'Test drive request created',
+    null,
+    [
+        'car_id' => $carId,
+        'car_name' => $car['name'],
+        'seller_id' => $sellerId,
+        'branch' => $sellerId !== null ? null : $branch,
+        'test_drive_date' => $testDriveDate,
+        'test_drive_time' => $testDriveTime,
+        'status' => 'pending'
+    ],
+    [
+        'source' => 'customer_booking'
+    ]
+);
 
 /*
 |--------------------------------------------------------------------------
@@ -1339,6 +1367,34 @@ if ($newStatus === 'completed') {
         $bookingId,
         $seller['id']
     ]);
+    /*
+|--------------------------------------------------------------------------
+| ACTIVITY LOG - SELLER TEST DRIVE STATUS
+|--------------------------------------------------------------------------
+*/
+
+logActivity(
+    $pdo,
+    (int)$seller['id'],
+    'seller',
+    'test_drive_status_changed',
+    'test_drive',
+    $bookingId,
+    'Seller changed test drive status',
+    [
+        'status' => $currentStatus
+    ],
+    [
+        'status' => $newStatus
+    ],
+    [
+        'car_id' => (int)$booking['car_id'],
+        'car_name' => $booking['car_name'],
+        'customer_name' => $booking['name'],
+        'test_drive_date' => $booking['test_drive_date'],
+        'test_drive_time' => $booking['test_drive_time']
+    ]
+);
 
     /*
      * Notify customer on WhatsApp.
@@ -1428,7 +1484,7 @@ if (
     |--------------------------------------------------------------------------
     */
 
-    requirePermission(
+    $currentAdmin = requirePermission(
     $pdo,
     'test_drives.manage'
 );
@@ -1510,10 +1566,10 @@ if (
     |--------------------------------------------------------------------------
     */
 
-    requirePermission(
-        $pdo,
-        'test_drives.manage'
-    );
+    $currentAdmin = requirePermission(
+    $pdo,
+    'test_drives.manage'
+);
 
 
     /*
@@ -1765,6 +1821,36 @@ if ($newStatus === 'completed') {
         $newStatus,
         $bookingId
     ]);
+    /*
+|--------------------------------------------------------------------------
+| ACTIVITY LOG - ADMIN TEST DRIVE STATUS
+|--------------------------------------------------------------------------
+*/
+
+logActivity(
+    $pdo,
+    (int)$currentAdmin['id'],
+    'admin',
+    'test_drive_status_changed',
+    'test_drive',
+    $bookingId,
+    'Admin changed test drive status',
+    [
+        'status' => $currentStatus
+    ],
+    [
+        'status' => $newStatus
+    ],
+    [
+        'admin_name' => $currentAdmin['name'],
+        'admin_role' => $currentAdmin['role'],
+        'car_name' => $booking['car_name'],
+        'customer_name' => $booking['name'],
+        'branch' => $booking['branch'],
+        'test_drive_date' => $booking['test_drive_date'],
+        'test_drive_time' => $booking['test_drive_time']
+    ]
+);
 
     /*
 |--------------------------------------------------------------------------

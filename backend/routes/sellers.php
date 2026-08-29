@@ -152,9 +152,34 @@ if (
         ]);
 
         $requestId =
-            (int)$pdo->lastInsertId();
+    (int)$pdo->lastInsertId();
 
-        $pdo->commit();
+$pdo->commit();
+
+/*
+|--------------------------------------------------------------------------
+| ACTIVITY LOG - SELLER REQUEST SUBMITTED
+|--------------------------------------------------------------------------
+*/
+
+logActivity(
+    $pdo,
+    $userId,
+    'customer',
+    'seller_request_submitted',
+    'seller_request',
+    $requestId,
+    'Customer submitted a seller request',
+    null,
+    [
+        'status' => 'pending'
+    ],
+    [
+        'user_name' => $user['name'],
+        'user_email' => $user['email'],
+        'source' => 'seller_request'
+    ]
+);
 
     } catch (Throwable $e) {
 
@@ -265,13 +290,12 @@ if (
     $method === 'PATCH'
 ) {
 
-    requirePermission(
-        $pdo,
-        'sellers.manage'
-    );
+    $currentAdmin = requirePermission(
+    $pdo,
+    'sellers.manage'
+);
 
-    $adminPayload = admin();
-    $adminId = (int)($adminPayload['sub'] ?? 0);
+$adminId = (int)$currentAdmin['id'];
 
     $requestId = (int)$matches[1];
 
@@ -328,6 +352,33 @@ if (
 
         $pdo->commit();
 
+        /*
+|--------------------------------------------------------------------------
+| ACTIVITY LOG - SELLER REQUEST APPROVED
+|--------------------------------------------------------------------------
+*/
+
+logActivity(
+    $pdo,
+    $adminId,
+    'admin',
+    'seller_request_approved',
+    'seller_request',
+    $requestId,
+    'Admin approved seller request',
+    [
+        'status' => 'pending'
+    ],
+    [
+        'status' => 'approved'
+    ],
+    [
+        'admin_name' => $currentAdmin['name'],
+        'admin_role' => $currentAdmin['role'],
+        'user_id' => (int)$request['user_id']
+    ]
+);
+
         out([
             'message' => 'Seller request approved successfully',
             'requestId' => $requestId,
@@ -363,13 +414,12 @@ if (
     $method === 'PATCH'
 ) {
 
-    requirePermission(
-        $pdo,
-        'sellers.manage'
-    );
+    $currentAdmin = requirePermission(
+    $pdo,
+    'sellers.manage'
+);
 
-    $adminPayload = admin();
-    $adminId = (int)($adminPayload['sub'] ?? 0);
+$adminId = (int)$currentAdmin['id'];
 
     $requestId = (int)$matches[1];
 
@@ -439,6 +489,34 @@ if (
         ]);
 
         $pdo->commit();
+
+        /*
+|--------------------------------------------------------------------------
+| ACTIVITY LOG - SELLER REQUEST REJECTED
+|--------------------------------------------------------------------------
+*/
+
+logActivity(
+    $pdo,
+    $adminId,
+    'admin',
+    'seller_request_rejected',
+    'seller_request',
+    $requestId,
+    'Admin rejected seller request',
+    [
+        'status' => 'pending'
+    ],
+    [
+        'status' => 'rejected'
+    ],
+    [
+        'admin_name' => $currentAdmin['name'],
+        'admin_role' => $currentAdmin['role'],
+        'user_id' => (int)$request['user_id'],
+        'rejection_reason' => $reason
+    ]
+);
 
         out([
             'message' => 'Seller request rejected successfully',

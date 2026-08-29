@@ -17,6 +17,7 @@ require_once __DIR__ . '/../config/jwt.php';
 require_once __DIR__ . '/../helpers/permissions.php';
 require_once __DIR__ . '/../helpers/mailer.php';
 require_once __DIR__ . '/../helpers/whatsapp.php';
+require_once __DIR__ . '/../helpers/activity-log.php';
 
 
 
@@ -397,6 +398,7 @@ $method =
     $_SERVER['REQUEST_METHOD'];
 
 $pdo = db();
+
 
 require_once __DIR__ . '/../routes/admin-roles.php';
 require_once __DIR__ . '/../routes/site-settings.php';
