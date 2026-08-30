@@ -1,6 +1,12 @@
 import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
-import { Plus, Trash2, Users } from "lucide-react";import { toast } from "sonner";
+import { AdminLayout } from "@/components/admin/admin-layout";
+import {
+  ArrowLeft,
+  Plus,
+  Trash2,
+  Users,
+} from "lucide-react";import { toast } from "sonner";
 import { adminApi } from "@/lib/admin-auth";
 import axios from "axios";
 
@@ -180,7 +186,9 @@ async function deleteUser(
   }
 
   return (
+  <AdminLayout>
     <div className="mx-auto max-w-7xl px-5 pt-28 pb-16 lg:px-8">
+      
       <header className="flex flex-col gap-5 md:flex-row md:items-end md:justify-between">
         <div>
           <p className="font-display text-xs font-semibold tracking-[0.32em] text-champagne-400 uppercase">
@@ -322,7 +330,8 @@ async function deleteUser(
             )}
           </tbody>
         </table>
-      </div>
+            </div>
     </div>
+  </AdminLayout>
   );
 }

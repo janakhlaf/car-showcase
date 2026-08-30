@@ -6,30 +6,20 @@
  */
 import { useMemo, useState } from "react";
 import { Link } from "react-router-dom";
-import { useNavigate } from "react-router-dom";
-import axios from "axios";
 import { adminApi } from "@/lib/admin-auth";
+import { AdminLayout } from "@/components/admin/admin-layout";
 import { AnimatePresence, motion } from "framer-motion";
 import {
-  CalendarDays,
   CircleDollarSign,
   ExternalLink,
   Layers,
-  LayoutDashboard,
   Loader2,
-  LogOut,
   Pencil,
   Plus,
   Search,
-  ShieldCheck,
   Star,
-  Store,
   Trash2,
   TriangleAlert,
-  Users,
-  ClipboardCheck,
-  History,
-
 } from "lucide-react";
 import { toast } from "sonner";
 import type { Brand, CarWithBrand } from "@/db/schema";
@@ -48,7 +38,6 @@ export function CarsTable({
   adminRole: "super_admin" | "manage_admin" | "editor_admin";
   adminPermissions: string[];
 }) {
-  const navigate = useNavigate();
   const [cars, setCars] = useState(initialCars);
   const [query, setQuery] = useState("");
   const [toDelete, setToDelete] = useState<CarWithBrand | null>(null);
@@ -89,37 +78,10 @@ export function CarsTable({
     }
   }
 
-  async function logout() {
-  const refreshToken =
-    sessionStorage.getItem("adminRefreshToken");
-
-  try {
-    await axios.post(
-      "/api/admin/logout",
-      {
-        refreshToken,
-      }
-    );
-
-    sessionStorage.removeItem(
-      "adminAccessToken"
-    );
-
-    sessionStorage.removeItem(
-      "adminRefreshToken"
-    );
-
-    toast.success("Signed out");
-
-    navigate("/admin/login");
-
-  } catch {
-    toast.error("Sign out failed");
-  }
-}
 
   return (
-    <div className="mx-auto max-w-7xl px-5 pt-28 pb-16 lg:px-8">
+  <AdminLayout>
+    <div className="mx-auto max-w-7xl px-5 pt-28">
 
       {/* header */}
       <header className="flex flex-col gap-5 md:flex-row md:items-end md:justify-between">
@@ -133,80 +95,6 @@ export function CarsTable({
           <p className="mt-2 text-sm text-zinc-500">Signed in as {adminName}</p>
         </div>
         <div className="flex flex-wrap items-center gap-3">
-
-  {adminRole === "super_admin" && (
-  <>
-    <Link
-      to="/admin/users"
-      className="inline-flex items-center gap-2 rounded-full border border-white/10 px-5 py-3 text-xs font-semibold tracking-[0.14em] text-zinc-300 uppercase transition-colors hover:border-champagne-400/40 hover:text-champagne-300"
-    >
-      <Users className="size-4" />
-      Manage users
-    </Link>
-
-    <Link
-      to="/admin/roles"
-      className="inline-flex items-center gap-2 rounded-full border border-white/10 px-5 py-3 text-xs font-semibold tracking-[0.14em] text-zinc-300 uppercase transition-colors hover:border-champagne-400/40 hover:text-champagne-300"
-    >
-      <ShieldCheck className="size-4" />
-      Roles & Permissions
-    </Link>
-    <Link
-  to="/admin/activity-history"
-  className="inline-flex items-center gap-2 rounded-full border border-white/10 px-5 py-3 text-xs font-semibold tracking-[0.14em] text-zinc-300 uppercase transition-colors hover:border-champagne-400/40 hover:text-champagne-300"
->
-  <History className="size-4" />
-  Activity History
-</Link>
-  </>
-)}
-
-{(
-  adminRole === "super_admin" ||
-  adminPermissions.includes("test_drives.manage")
-) && (
-  <Link
-    to="/admin/test-drives"
-    className="inline-flex items-center gap-2 rounded-full border border-white/10 px-5 py-3 text-xs font-semibold tracking-[0.14em] text-zinc-300 uppercase transition-colors hover:border-champagne-400/40 hover:text-champagne-300"
-  >
-    <CalendarDays className="size-4" />
-    Test Drive Bookings
-  </Link>
-)}
-{(
-  adminRole === "super_admin" ||
-  adminPermissions.includes("sellers.manage")
-) && (
-  <Link
-    to="/admin/seller-requests"
-    className="inline-flex items-center gap-2 rounded-full border border-white/10 px-5 py-3 text-xs font-semibold tracking-[0.14em] text-zinc-300 uppercase transition-colors hover:border-champagne-400/40 hover:text-champagne-300"
-  >
-    <Store className="size-4" />
-    Seller Requests
-  </Link>
-)}
-{(
-  adminRole === "super_admin" ||
-  adminPermissions.includes("seller_vehicles.review")
-) && (
-  <Link
-    to="/admin/vehicle-reviews"
-    className="inline-flex items-center gap-2 rounded-full border border-white/10 px-5 py-3 text-xs font-semibold tracking-[0.14em] text-zinc-300 uppercase transition-colors hover:border-champagne-400/40 hover:text-champagne-300"
-  >
-    <Store className="size-4" />
-    Vehicle Reviews
-  </Link>
-)}
-
-{adminPermissions.includes("site_content.edit") && (
-  <Link
-    to="/admin/content"
-    className="inline-flex items-center gap-2 rounded-full border border-white/10 px-5 py-3 text-xs font-semibold tracking-[0.14em] text-zinc-300 uppercase transition-colors hover:border-champagne-400/40 hover:text-champagne-300"
-  >
-    <LayoutDashboard className="size-4" />
-    Website Content
-  </Link>
-)}
 
 
 {adminPermissions.includes("cars.create") && (
@@ -392,6 +280,7 @@ export function CarsTable({
           </motion.div>
         )}
       </AnimatePresence>
-    </div>
-  );
+        </div>
+  </AdminLayout>
+);
 }

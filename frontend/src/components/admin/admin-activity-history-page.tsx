@@ -1,5 +1,10 @@
 import { useEffect, useState } from "react";
-import { useNavigate } from "react-router-dom";
+import {
+  Link,
+  useNavigate,
+} from "react-router-dom";
+import { ArrowLeft } from "lucide-react";
+import { AdminLayout } from "@/components/admin/admin-layout";
 import { adminApi } from "@/lib/admin-auth";
 
 type ActivityLog = {
@@ -59,7 +64,8 @@ export function AdminActivityHistoryPage() {
 }, [navigate]);
 
   return (
-    <div className="min-h-screen px-6 py-10">
+  <AdminLayout>
+    <div className="min-h-screen px-6 pb-10 pt-32">
       <div className="mx-auto max-w-7xl">
 
         <h1 className="text-3xl font-semibold">
@@ -176,6 +182,7 @@ export function AdminActivityHistoryPage() {
           )}
 
       </div>
-    </div>
-  );
+        </div>
+  </AdminLayout>
+);
 }

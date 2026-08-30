@@ -1,4 +1,9 @@
-import { BrowserRouter, Routes, Route } from "react-router-dom";
+import {
+  BrowserRouter,
+  Routes,
+  Route,
+  useLocation,
+} from "react-router-dom";
 import { Providers } from "@/components/providers";
 import { Navbar } from "@/components/site/navbar";
 import { Footer } from "@/components/site/footer";
@@ -43,12 +48,31 @@ import { VerifyAccountPage } from "@/pages/VerifyAccountPage";
 import {
   MyTestDrivesPage,
 } from "@/pages/MyTestDrivesPage";
+function AppNavbar() {
+  const location = useLocation();
+
+  if (location.pathname.startsWith("/admin")) {
+    return null;
+  }
+
+  return <Navbar />;
+}
+function AppFooter() {
+  const location = useLocation();
+
+  if (location.pathname.startsWith("/admin")) {
+    return null;
+  }
+
+  return <Footer />;
+}
+
 export default function App() {
   return (
     <BrowserRouter>
       <Providers>
 
-        <Navbar />
+        <AppNavbar />
 
         <main id="content">
           <Routes>
@@ -198,7 +222,7 @@ export default function App() {
           
         </main>
 
-        <Footer />
+        <AppFooter />
 
       </Providers>
     </BrowserRouter>

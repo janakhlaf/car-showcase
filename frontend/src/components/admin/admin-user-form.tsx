@@ -10,6 +10,7 @@ import {
 import { toast } from "sonner";
 import axios from "axios";
 import { adminApi } from "@/lib/admin-auth";
+import { AdminLayout } from "@/components/admin/admin-layout";
 
 type AdminRole =
   | "super_admin"
@@ -80,18 +81,11 @@ export function AdminUserForm() {
   }
 
   return (
+  <AdminLayout>
     <div className="mx-auto max-w-3xl px-5 pt-28 pb-16 lg:px-8">
 
       <div className="mb-8">
-        <button
-          type="button"
-          onClick={() =>
-            navigate("/admin/users")
-          }
-          className="text-xs font-semibold tracking-[0.16em] text-zinc-500 uppercase hover:text-champagne-300"
-        >
-          ← Users
-        </button>
+        
 
         <p className="mt-8 font-display text-xs font-semibold tracking-[0.32em] text-champagne-400 uppercase">
           Admin Studio
@@ -246,7 +240,8 @@ export function AdminUserForm() {
             : "Create user"}
         </button>
 
-      </form>
+            </form>
     </div>
+  </AdminLayout>
   );
 }

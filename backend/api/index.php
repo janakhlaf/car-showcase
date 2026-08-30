@@ -1501,31 +1501,46 @@ if (
     &&
     $method === 'GET'
 ) {
+
+    /*
+     * Count approved cars only.
+     */
     $cars =
         (int)$pdo
             ->query(
-                'SELECT COUNT(*)
-                 FROM cars'
+                "SELECT COUNT(*)
+                 FROM cars
+                 WHERE approval_status = 'approved'"
             )
             ->fetchColumn();
 
 
+    /*
+     * Count brands that actually have
+     * at least one approved car.
+     */
     $brands =
         (int)$pdo
             ->query(
-                'SELECT COUNT(*)
-                 FROM brands'
+                "SELECT COUNT(DISTINCT brand_id)
+                 FROM cars
+                 WHERE approval_status = 'approved'"
             )
             ->fetchColumn();
 
 
+    /*
+     * Get specs and colors from
+     * approved cars only.
+     */
     $rows =
         $pdo
             ->query(
-                'SELECT
+                "SELECT
                     specs,
                     color
-                 FROM cars'
+                 FROM cars
+                 WHERE approval_status = 'approved'"
             )
             ->fetchAll();
 
@@ -1536,6 +1551,7 @@ if (
 
 
     foreach ($rows as $row) {
+
         $specs =
             json_decode(
                 $row['specs']
@@ -1543,15 +1559,21 @@ if (
                 true
             );
 
+
         $horsepower +=
             (int)(
                 $specs['horsepower']
                 ?? 0
             );
 
-        $colors[
-            $row['color']
-        ] = 1;
+
+        if (
+            !empty($row['color'])
+        ) {
+            $colors[
+                $row['color']
+            ] = 1;
+        }
     }
 
 

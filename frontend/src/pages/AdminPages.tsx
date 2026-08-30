@@ -1,5 +1,6 @@
 import { adminApi } from "@/lib/admin-auth";
 import { ModelViewer } from "@/components/three/model-viewer";
+import { AdminLayout } from "@/components/admin/admin-layout";
 import {
   Eye,
   CalendarDays,
@@ -10,7 +11,8 @@ import {
   CheckCircle2,
   XCircle,
 } from "lucide-react";
-import {useEffect,useState} from 'react'; import {useNavigate,useParams} from 'react-router-dom'; import axios from 'axios'; import type {Brand,CarWithBrand} from '@/db/schema'; import {CarsTable} from '@/components/admin/cars-table'; import {CarForm} from '@/components/admin/car-form'; import {LoginForm} from '@/components/admin/login-form';
+import {useEffect,useState} from 'react'; import {Link,useNavigate,useParams} from 'react-router-dom';
+import axios from 'axios'; import type {Brand,CarWithBrand} from '@/db/schema'; import {CarsTable} from '@/components/admin/cars-table'; import {CarForm} from '@/components/admin/car-form'; import {LoginForm} from '@/components/admin/login-form';
 export function AdminLoginPage(){return <div className="mx-auto flex min-h-screen max-w-md items-center px-5"><LoginForm/></div>}
 function useAdminData() {
   const nav = useNavigate();
@@ -76,8 +78,31 @@ export function AdminPage(){
       </div>
     );
 }
-export function NewCarPage(){const d=useAdminData(); return d?<div className="mx-auto max-w-5xl px-5 pt-28 pb-16"><CarForm mode="create" brands={d.brands}/></div>:null}
-export function EditCarPage(){const d=useAdminData(); const {id}=useParams(); const car=d?.cars.find(c=>String(c.id)===id); return d&&car?<div className="mx-auto max-w-5xl px-5 pt-28 pb-16"><CarForm mode="edit" initial={car} brands={d.brands}/></div>:null}
+export function NewCarPage() {
+  const d = useAdminData();
+
+  return d ? (
+    <AdminLayout>
+      <div className="mx-auto max-w-5xl px-5 pt-28 pb-16">
+        <CarForm mode="create" brands={d.brands} />
+      </div>
+    </AdminLayout>
+  ) : null;
+}
+
+export function EditCarPage() {
+  const d = useAdminData();
+  const { id } = useParams();
+  const car = d?.cars.find((c) => String(c.id) === id);
+
+  return d && car ? (
+    <AdminLayout>
+      <div className="mx-auto max-w-5xl px-5 pt-28 pb-16">
+        <CarForm mode="edit" initial={car} brands={d.brands} />
+      </div>
+    </AdminLayout>
+  ) : null;
+}
 type TestDriveBooking = {
   id: number;
   user_id: number;
@@ -242,8 +267,11 @@ export function AdminTestDrivesPage() {
   }
 
   return (
+  <AdminLayout>
     <main className="min-h-screen px-5 pb-20 pt-28">
       <div className="mx-auto max-w-7xl">
+        
+        
 
         {/* HEADER */}
 
@@ -630,9 +658,11 @@ export function AdminTestDrivesPage() {
         </div>
       )}
 
-    </main>
+        </main>
+  </AdminLayout>
   );
 }
+
 type SellerRequest = {
   id: number;
   userId: number;
@@ -864,9 +894,11 @@ export function AdminSellerRequestsPage() {
   }
 
   return (
+  <AdminLayout>
     <main className="min-h-screen px-5 pb-20 pt-28">
 
       <div className="mx-auto max-w-7xl">
+        
 
         {/* HEADER */}
 
@@ -1163,9 +1195,11 @@ export function AdminSellerRequestsPage() {
         </div>
       )}
 
-    </main>
+        </main>
+  </AdminLayout>
   );
 }
+
 type SellerVehicleReview = {
   id: number;
   sellerId: number;
@@ -1409,9 +1443,11 @@ export function AdminVehicleReviewsPage() {
   }
 
   return (
+  <AdminLayout>
     <main className="min-h-screen px-5 pb-20 pt-28">
 
       <div className="mx-auto max-w-7xl">
+        
 
         <div className="mb-10">
 
@@ -1821,8 +1857,9 @@ export function AdminVehicleReviewsPage() {
           </div>
 
         </div>
-      )}
+            )}
 
     </main>
+  </AdminLayout>
   );
 }

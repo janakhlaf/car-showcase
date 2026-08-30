@@ -1,5 +1,12 @@
 import { useEffect, useMemo, useState } from "react";
-import { ShieldCheck, LockKeyhole, Save } from "lucide-react";
+import {
+  ArrowLeft,
+  ShieldCheck,
+  LockKeyhole,
+  Save,
+} from "lucide-react";
+import { AdminLayout } from "@/components/admin/admin-layout";
+import { Link } from "react-router-dom";
 import { toast } from "sonner";
 import axios from "axios";
 
@@ -171,7 +178,9 @@ export function AdminRolesPage() {
   }
 
   return (
+  <AdminLayout>
     <div className="mx-auto max-w-7xl px-5 pt-28 pb-16 lg:px-8">
+      
       <header>
         <p className="font-display text-xs font-semibold tracking-[0.32em] text-champagne-400 uppercase">
           Admin Studio
@@ -346,8 +355,9 @@ export function AdminRolesPage() {
               )}
             </section>
           );
-        })}
+                })}
       </div>
     </div>
+  </AdminLayout>
   );
 }

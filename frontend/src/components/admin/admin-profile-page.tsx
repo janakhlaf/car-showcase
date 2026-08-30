@@ -1,8 +1,8 @@
 import { useEffect, useState } from "react";
-import { Link } from "react-router-dom";
 import { CalendarDays, Loader2, Mail, User } from "lucide-react";
 import { toast } from "sonner";
 import { adminApi } from "@/lib/admin-auth";
+import { AdminLayout } from "@/components/admin/admin-layout";
 
 type AdminProfile = {
   id: number;
@@ -51,14 +51,9 @@ export function AdminProfilePage() {
   }
 
   return (
+  <AdminLayout>
     <div className="mx-auto max-w-3xl px-5 pt-28 pb-16 lg:px-8">
 
-      <Link
-        to="/admin"
-        className="text-xs font-semibold tracking-[0.16em] text-zinc-500 uppercase transition-colors hover:text-champagne-300"
-      >
-        ← Admin dashboard
-      </Link>
 
       <div className="mt-8">
         <p className="font-display text-xs font-semibold tracking-[0.32em] text-champagne-400 uppercase">
@@ -128,6 +123,7 @@ export function AdminProfilePage() {
         </div>
 
       </div>
-    </div>
+        </div>
+  </AdminLayout>
   );
 }

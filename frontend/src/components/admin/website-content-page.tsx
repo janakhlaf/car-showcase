@@ -1,8 +1,9 @@
 import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import axios from "axios";
-import { ArrowLeft, MonitorCog, CarFront, Loader2 } from "lucide-react";
+import { MonitorCog, CarFront, Loader2 } from "lucide-react";
 import { toast } from "sonner";
+import { AdminLayout } from "@/components/admin/admin-layout";
 
 import { adminApi } from "@/lib/admin-auth";
 
@@ -765,20 +766,11 @@ async function saveFooterContent() {
 
 
   return (
+  <AdminLayout>
     <div className="min-h-screen bg-obsidian-950 px-5 pb-20 pt-28 text-white">
       <div className="mx-auto max-w-5xl">
 
-        {/* Back */}
-        <button
-          type="button"
-          onClick={() =>
-            navigate("/admin")
-          }
-          className="mb-8 inline-flex items-center gap-2 text-sm text-zinc-400 transition-colors hover:text-white"
-        >
-          <ArrowLeft className="size-4" />
-          Back to Admin
-        </button>
+        
 
 
         {/* Header */}
@@ -1877,12 +1869,13 @@ async function saveFooterContent() {
 
 
 
-        </section>
+              </section>
 
-      </div>
-      
     </div>
+      
+  </div>
+</AdminLayout>
     
-  );
+);
   
 }
