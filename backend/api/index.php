@@ -407,6 +407,7 @@ require_once __DIR__ . '/../routes/auth.php';
 require_once __DIR__ . '/../routes/test-drives.php';
 require_once __DIR__ . '/../routes/sellers.php';
 require_once __DIR__ . '/../routes/messages.php';
+require_once __DIR__ . '/../routes/admin-dashboard.php';
 require_once __DIR__ . '/activity-logs.php';
 
 

@@ -16,6 +16,7 @@ import { VerifyOtpPage } from "./pages/VerifyOtpPage";
 import { SellerDashboardPage } from "@/pages/SellerDashboardPage";
 import { SellerAvailabilityPage } from "@/pages/SellerAvailabilityPage";
 import { SellerTestDrivesPage } from "@/pages/SellerTestDrivesPage";
+import { AdminDashboardPage } from "@/components/admin/admin-dashboard-page";
 import { ConversationsPage } from "@/pages/ConversationsPage";
 import { MessagesPage } from "@/pages/MessagesPage";
 import {
@@ -131,9 +132,14 @@ export default function App() {
             />
 
             <Route
-              path="/admin"
-              element={<AdminPage />}
-            />
+  path="/admin/cars"
+  element={<AdminPage />}
+
+/>
+<Route
+  path="/admin"
+  element={<AdminDashboardPage />}
+/>
             <Route
               path="/admin/test-drives"
               element={<AdminTestDrivesPage />}

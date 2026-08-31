@@ -16,6 +16,7 @@ History,
 LogOut,
 Menu,
 X,
+LayoutDashboard,
 } from "lucide-react";
 
 type AdminLayoutProps = {
@@ -133,7 +134,19 @@ useEffect(() => {
         {/* NAVIGATION */}
         <nav className="flex-1 overflow-y-auto px-4 py-6">
 
-          
+          {/* DASHBOARD */}
+<p className="mb-2 px-3 text-[9px] font-semibold uppercase tracking-[0.25em] text-white/25">
+  Dashboard
+</p>
+
+<Link
+  to="/admin"
+  className={linkClass("/admin")}
+  onClick={() => setSidebarOpen(false)}
+>
+  <LayoutDashboard className="h-4 w-4" />
+  Overview
+</Link>
 
           {/* VEHICLES */}
           <p className="mb-2 mt-7 px-3 text-[9px] font-semibold uppercase tracking-[0.25em] text-white/25">
@@ -141,12 +154,13 @@ useEffect(() => {
           </p>
 
           <Link
-            to="/admin"
-            className={linkClass("/admin")}
-          >
-            <CarFront className="h-4 w-4" />
-            Inventory
-          </Link>
+  to="/admin/cars"
+  className={linkClass("/admin/cars")}
+  onClick={() => setSidebarOpen(false)}
+>
+  <CarFront className="h-4 w-4" />
+  Inventory
+</Link>
 
           <Link
             to="/admin/cars/new"
